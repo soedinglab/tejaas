@@ -1,15 +1,15 @@
 #!/bin/bash
 
 INPUTDIR="${HOME}/gwas-eQTL/gtex_data"
-SCRIPTDIR="${HOME}/nagial/trans-eqtl/scripts"
+SCRIPTDIR="${HOME}/trans-eQTL/codebase/tejaas/main"
 
 P_QVAL_CUTOFF="0.05"
 PVAL_CUTOFF="0.05"
-MAX_NSNP=10000
+MAX_NSNP=1000
 
-for j in {1..22}; do
+for j in {21..22}; do
 
-    OUTDIR="${HOME}/nagial/trans-eqtl/gtex/chr${j}"
+    OUTDIR="${HOME}/trans-eQTL/random_bg/chr${j}"
     
     if [ ! -d ${OUTDIR} ]; then
         mkdir -p ${OUTDIR}
@@ -23,7 +23,7 @@ for j in {1..22}; do
     DONORIDS="${INPUTDIR}/dosages/donor_ids.fam"
     TOTALSNPS=`zcat ${GENOTYPE} | wc -l`
     
-    NJOBS=$(echo $(( TOTALSNPS/MAX_NSNP )))
+    NJOBS=5 #$(echo $(( TOTALSNPS/MAX_NSNP )))
     
     for (( i=0; i <= ${NJOBS}; i++ )); do 
         INDEX=`echo $i | awk '{printf "%03d", $1}'`

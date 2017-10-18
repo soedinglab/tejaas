@@ -2,17 +2,17 @@
 #BSUB -J _JOBNAME_
 #BSUB -q mpi
 #BSUB -W 48:00
-#BSUB -n 16
+#BSUB -n 8
 #BSUB -o _JOBNAME_.o%J
 #BSUB -e _JOBNAME_.e%J
 #BSUB -a intelmpi
+#BSUB -R "span[hosts=1]"
 
 module load intel/compiler/64/2017/17.0.2
 module load intel/mkl/64/2017/2.174
-module load R/3.4.1
 module load openmpi/intel/64/1.10.7
 
-R_TRANSEQTL="_trn_eqtl"
+TRANSEQTL="_trn_eqtl"
 GENOTYPE="_genotype"
 GENEEXP="_gene_exp"
 DONORIDS="_donor_id"
@@ -20,7 +20,13 @@ STARTSNP="_startsnp"
 ENDSNP="_endsnp__"
 P_QVAL_CUTOFF="_pqvalcut"
 PVAL_CUTOFF="_pvalcut_"
-OUTPUT_QSTAT="_qstatout"
-OUTPUT_TOPGENES="_topgenes"
+OUTPUT="_qstatout"
 
-mpiexec -np 1 Rscript ${R_TRANSEQTL} ${GENOTYPE} ${GENEEXP} ${DONORIDS} ${STARTSNP} ${ENDSNP} ${P_QVAL_CUTOFF} ${PVAL_CUTOFF} ${OUTPUT_QSTAT} ${OUTPUT_TOPGENES}
+source activate py35
+mpiexec -np 8 python ${TRANSEQTL} \
+                      --genotype ${GENOTYPE} \
+                      --sample ${DONORIDS} \
+                      --expression ${GENEEXP} \
+                      --output ${OUTPUT} \
+                      --start ${STARTSNP} \
+                      --end ${ENDSNP}

@@ -72,7 +72,7 @@ def norm_binom(gt, freq):
     gt = (gt - (2 * f)) / np.sqrt(2 * f * (1 - f))
     return gt
 
-def cpvalcomp(geno, expr, qcal):
+def cpvalcomp(geno, expr, qcal, shuffle=False):
     _path = os.path.dirname(__file__)
     clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
     cfstat = clib.fit
@@ -87,6 +87,9 @@ def cpvalcomp(geno, expr, qcal):
 
     x = geno.reshape(-1,)
     y = expr.reshape(-1,)
+    if shuffle:
+        np.random.shuffle(x)
+        np.random.shuffle(y)
     xsize = x.shape[0]
     nsnps = geno.shape[0]
     nsample = geno.shape[1]
@@ -183,7 +186,7 @@ comm.barrier()
 # ==================================
 # Everything sent. Now do the calculations
 # ==================================
-pvals, qscores, pqvals, gene_indices = cpvalcomp(slave_geno, expr, qcal)
+pvals, qscores, pqvals, gene_indices = cpvalcomp(slave_geno, expr, qcal, shuffle=True)
 
 pvals   = comm.gather(pvals,   root = 0)
 qscores = comm.gather(qscores, root = 0)
@@ -192,6 +195,7 @@ gene_indices = comm.gather(gene_indices,  root = 0)
 
 if rank == 0:
     pvals = np.vstack(pvals)
+    np.save(out_fileprefix, pvals)
     qscores = np.concatenate(qscores)
     pqvals  = np.concatenate(pqvals)
     gene_indices_list = list()
