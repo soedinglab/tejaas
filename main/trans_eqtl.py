@@ -14,7 +14,7 @@ import output
 
 def parse_args():
 
-    parser = argparse.ArgumentParser(description='Trans-eQTL joint analysis from all SNPs (TEJAS)')
+    parser = argparse.ArgumentParser(description='Trans-Eqtls from Joint Association AnalysiS (TEJAAS)')
 
     parser.add_argument('--genotype',
                         type=str,
@@ -186,7 +186,7 @@ comm.barrier()
 # ==================================
 # Everything sent. Now do the calculations
 # ==================================
-pvals, qscores, pqvals, gene_indices = cpvalcomp(slave_geno, expr, qcal, shuffle=True)
+pvals, qscores, pqvals, gene_indices = cpvalcomp(slave_geno, expr, qcal, shuffle=False)
 
 pvals   = comm.gather(pvals,   root = 0)
 qscores = comm.gather(qscores, root = 0)
@@ -195,7 +195,7 @@ gene_indices = comm.gather(gene_indices,  root = 0)
 
 if rank == 0:
     pvals = np.vstack(pvals)
-    np.save(out_fileprefix, pvals)
+    #np.save(out_fileprefix, pvals)
     qscores = np.concatenate(qscores)
     pqvals  = np.concatenate(pqvals)
     gene_indices_list = list()

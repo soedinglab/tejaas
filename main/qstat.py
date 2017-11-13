@@ -13,8 +13,8 @@ class Q_Cal(collections.namedtuple('_Q_Cal', QCAL_FIELDS)):
 
 def qscore(pvals):
     p = np.sort(pvals)
-    n = p.shape[1]
-    kmax = min(1000, n)
+    n = p.shape[0]
+    kmax = min(100, n)
     krange = [i + 1 for i in range(kmax)]
     digamma_n1 = special.digamma(n + 1)
     z = - ( np.log(p[:kmax]) - (special.digamma(krange) - digamma_n1) )
