@@ -64,21 +64,23 @@ class DosageParser:
                 linenum += 1
                 if linenum >= self._startsnp and linenum <= self._endsnp:
                     linestrip = line.decode().strip().split()
-                    chrm = linestrip[0]
-                    rsid = linestrip[1]
-                    bpos = linestrip[2]
                     refa = linestrip[3]
                     alta = linestrip[4]
-                    freq = float(linestrip[5])
-                    snp  = SnpInfo(chrm = chrm,
-                                   rsid = rsid,
-                                   bp_location = bpos,
-                                   ref_allele = refa,
-                                   alt_allele = alta,
-                                   freq = freq)
-                    this_dosage = np.array(linestrip[6:], dtype = float)
-                    _dosagelist.append(this_dosage)
-                    _snpinfo.append(snp)
+                    if len(refa) == 1 and len(alta) == 1:
+                        chrm = linestrip[0]
+                        rsid = linestrip[1]
+                        bpos = linestrip[2]
+                        freq = float(linestrip[5])
+                        if freq >= 0.1 and freq <= 0.9:
+                            snp  = SnpInfo(chrm = chrm,
+                                           rsid = rsid,
+                                           bp_location = bpos,
+                                           ref_allele = refa,
+                                           alt_allele = alta,
+                                           freq = freq)
+                            this_dosage = np.array(linestrip[6:], dtype = float)
+                            _dosagelist.append(this_dosage)
+                            _snpinfo.append(snp)
         self._dosage = np.array(_dosagelist)
         self._nsnps = self._dosage.shape[0]
         self._nsample = self._dosage.shape[1]
