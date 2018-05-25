@@ -1,0 +1,68 @@
+this folder requires a the following structure:
+
+├── data
+│   ├── donor_ids.fam
+│   ├── expressions
+│   │   ├── actual.csv
+│   │   ├── gtex_wholeblood_normalized.expression.txt
+│   │   ├── gtex_wholeblood_normalized.lm_corr.exp.klinikum.RDS
+│   │   ├── gtex_wholeblood_normalized.lm_corr.exp.klinikum.txt
+│   │   └── GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt
+│   ├── geno
+│   │   ├── donor_ids.fam
+│   │   ├── GTEx_450Indiv_chr1_genot_imput_info04_maf01_HWEp1E6_ConstrVarIDs_donorIDs.vcf.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr10.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr11.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr12.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr13.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr14.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr15.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr16.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr17.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr18.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr19.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr1.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr20.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr21.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr22.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr2.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr3.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr4.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr5.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr6.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr7.gz
+│   │   ├── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr8.gz
+│   │   └── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr9.gz
+│   └── GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_filteredTEJAAS_transeqtls.gz
+├── inference
+│   ├── __pycache__
+│   │   ├── dosageparser.cpython-36.pyc
+│   │   ├── regulizer_optimizer.cpython-36.pyc
+│   │   └── Simulation_data.cpython-36.pyc
+│   ├── regulizer_optimizer.py
+│   └── Simulation_data.py
+├── iotools
+│   ├── dosageparser.py
+│   ├── __pycache__
+│   │   ├── dosageparser.cpython-36.pyc
+│   │   └── readVCF.cpython-36.pyc
+│   └── readVCF.py
+├── PCA_KNN_Correction
+│   ├── lib
+│   │   ├── linear_regression.c
+│   │   └── linear_regression.so
+│   └── main
+│       ├── dosageparser.py
+│       ├── out
+│       ├── output.py
+│       ├── PCA_KNN_correction_on_gene_expression.py
+│       ├── __pycache__
+│       │   ├── dosageparser.cpython-36.pyc
+│       │   ├── output.cpython-36.pyc
+│       │   └── qstat.cpython-36.pyc
+│       ├── qstat.py
+│       ├── sample_distance_matrix.csv
+│       └── trans_eqtl_KNN.py
+├── reverse_regression.py
+├── run_transeqtl.sh
+
