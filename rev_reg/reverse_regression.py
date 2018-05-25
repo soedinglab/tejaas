@@ -238,26 +238,26 @@ U, S, V_t = np.linalg.svd(np.transpose(expr),full_matrices=False)               
 fact = sigma_geno**2 / sigbeta**2
 diagw = np.square(S) / (np.square(S) + fact)
 Wsvd = np.dot(U, np.dot(np.diag(diagw), U.T))                                                       # Reverse because in the methods
-Qsvd  = np.diag(np.dot(genotype, np.dot(Wsvd,  genotype.T)))                                        # geno should be SNP X Sample
+Rsvd  = np.diag(np.dot(genotype, np.dot(Wsvd,  genotype.T)))                                        # geno should be SNP X Sample
 
                                                                                                     #Inference parameters
 
 ############ after update on 22 May 2018 ##############
 
-Qmean    = np.sum(diagw)
+Rmean    = np.sum(diagw)
 
-Qvar     = (2 * np.sum(np.square(diagw))) + (np.mean(genotype**4, axis = 1) - 3) * np.sum(np.square(np.diag(Wsvd)))
+Rvar     = (2 * np.sum(np.square(diagw))) + (np.mean(genotype**4, axis = 1) - 3) * np.sum(np.square(np.diag(Wsvd)))
 
-alpha    = Qvar / (2 * Qmean)
+alpha    = Rvar / (2 * Rmean)
 
-f_degree = Qmean / alpha
+f_degree = Rmean / alpha
 
-Q_pval = 1 - chi2.cdf(Qsvd/alpha,f_degree)
+pval_R = 1 - chi2.cdf(Rsvd/alpha,f_degree)
 
 ################## Plotting ###########################
 
-FinvP = np.sqrt(2) * erfinv(2 * np.sort(Q_pval) - 1)
-P_null = np.linspace(0,1,Q_pval.shape[0])                                                           #np.random.uniform(0,1,Q_pval.shape[0])
+FinvP = np.sqrt(2) * erfinv(2 * np.sort(pval_R) - 1)
+P_null = np.linspace(0,1,pval_R.shape[0])                                                           #np.random.uniform(0,1,pval_R.shape[0])
 FinvP_null = np.sqrt(2) * erfinv(2 * P_null - 1)
 
 plt.figure(figsize=(10,10))
@@ -266,6 +266,6 @@ plt.xlabel("-FinvP_null")
 plt.ylabel("-FinvP")
 plt.plot([-6,6], [-6,6])
 plt.axes().set_aspect('equal')
-plt.savefig("reverse_regression_Finv_comparison.png")
+plt.savefig("comparison_rev_reg_FinvP.png")
 plt.show()
 
