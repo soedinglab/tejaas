@@ -203,7 +203,7 @@ print ("Completed data loading and processing\n")
 
 ##################################################################################    
                                                                                                     #K nearest neighbour correction
-choose_ids = [x for x in sampleids if x in donorids]
+'''choose_ids = [x for x in sampleids if x in donorids]
 distance, sample = read_distance("PCA_KNN_Correction/main/sample_distance_matrix.csv")
 distance_matrix = distance[exprsn_indices,:][:,exprsn_indices]
 
@@ -216,9 +216,10 @@ for i,j in enumerate(choose_ids):
     neighbors =np.argsort(distances)[: k+1]
     corrected_geno[:, i] = geno[:, i] - np.mean(geno[:, neighbors[1:]], axis = 1)
 
+geno = corrected_geno
+'''
 #####################################################################################
 
-geno = corrected_geno
 ori_shuffled_genom = geno.copy()
 
 for i in range(ori_shuffled_genom.shape[1]):

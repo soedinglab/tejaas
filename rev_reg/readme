@@ -1,3 +1,7 @@
+run instruction :
+./run_transeqtl.sh data/geno/<chromosome file>
+
+
 this folder requires a the following structure:
 
 ├── data
