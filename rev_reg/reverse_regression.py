@@ -11,6 +11,7 @@ from iotools.dosageparser import DosageParser
 from iotools.readVCF import ReadVCF 
 from scipy.optimize import minimize
 from scipy.special import erfinv
+from inference.regulizer_optimizer import OptimizeRegularizer
 
 def parse_args():
 
@@ -88,10 +89,10 @@ def read_expression(filename):
     return donorids, expression, gene_names
 
 
-def norm_binom(genotype, f):
+'''def norm_binom(genotype, f):
     genotype = (genotype - (2 * f)) / np.sqrt(2 * f * (1 - f))
     return genotype
-
+'''
 
 def parse_geno (genotype_filename, sample_filename, startsnp, endsnp):                              #Read genotype here
     ds        = DosageParser(genotype_filename, sample_filename, startsnp, endsnp)
@@ -150,14 +151,14 @@ if optim:
         trans_dosage, trans_snpinfo, trans_donorids, trans_nsnps, trans_nsample = parse_geno (transgeno, sample_filename, 0, 50000)
         dosage_indices, exprsn_indices = quality_check (sampleids , trans_donorids)
         conv_dosage = np.round(trans_dosage)                                                        #Best performance if dosages are rounded off
-        geno        = conv_dosage[:, dosage_indices].T 
-                                                                                                    # for the matrix to be of N X SNP size. 
+        geno        = conv_dosage[:, dosage_indices]
+                                                   
                                                                                                     #Check the normalization method. This is done using data mean now
                                                                                                     #freq        = np.array([x.freq for x in trans_snpinfo])
         expr        = expression[:, exprsn_indices]
                                                                                                     #geno        = norm_binom(geno, freq)
-        geno = (geno - np.mean(geno,axis = 0)) / np.std(geno,axis = 0)
-        geno        = geno.T
+        geno = ((geno.T - np.mean(geno.T,axis = 0)) / np.std(geno.T,axis = 0)).T
+        
         optimize_sigbeta   = OptimizeRegularizer(geno, expr)
         optimize_sigbeta.update()
         optimize_sigbeta.niter
@@ -191,19 +192,20 @@ print ("\nReading Genotype")
 dosage, snpinfo, donorids, nsnps, nsample = parse_geno ( genotype_filename, sample_filename, startsnp, endsnp)
 dosage_indices, exprsn_indices = quality_check (sampleids , donorids)
 conv_dosage = np.round(dosage)                                                                      #Best performance if dosages are rounded off
-geno        = conv_dosage[:, dosage_indices].T                                                      # for the matrix to be of NXI size
+geno        = conv_dosage[:, dosage_indices]                                                    
                                                                                                     #freq        = np.array([x.freq for x in snpinfo])
-geno = (geno - np.mean(geno,axis = 0)) / np.std(geno,axis = 0)
-                                                                                                    #Scaling and normalization
+geno = ((geno.T - np.mean(geno.T,axis = 0)) / np.std(geno.T,axis = 0)).T
+
+#Scaling and normalization
                                                                                                     #geno  = norm_binom(geno, freq)  #commented out to later check it 
 expr  = expression[:, exprsn_indices]
-geno  = geno.T                                                                                      # SXN
+                                                                                                    # SXN
 print ("Completed data loading and processing\n")
 
 
 ##################################################################################    
-                                                                                                    #K nearest neighbour correction
-'''choose_ids = [x for x in sampleids if x in donorids]
+'''                                                                                                    #K nearest neighbour correction
+choose_ids = [x for x in sampleids if x in donorids]
 distance, sample = read_distance("PCA_KNN_Correction/main/sample_distance_matrix.csv")
 distance_matrix = distance[exprsn_indices,:][:,exprsn_indices]
 
@@ -217,22 +219,23 @@ for i,j in enumerate(choose_ids):
     corrected_geno[:, i] = geno[:, i] - np.mean(geno[:, neighbors[1:]], axis = 1)
 
 geno = corrected_geno
+geno = ((geno.T - np.mean(geno.T,axis = 0)) / np.std(geno.T,axis = 0)).T
 '''
 #####################################################################################
 
 ori_shuffled_genom = geno.copy()
 
-for i in range(ori_shuffled_genom.shape[1]):
-    idx = np.random.permutation(np.arange(0,ori_shuffled_genom.shape[0]))
+for i in range(ori_shuffled_genom.shape[0]):
+    idx = np.random.permutation(np.arange(0,ori_shuffled_genom.shape[1]))
     np.random.shuffle(idx)
-    ori_shuffled_genom[:,i] = ori_shuffled_genom[idx,i]
-
+    ori_shuffled_genom[i,:] = ori_shuffled_genom[i,idx]
                                                                                                     #randoms = np.random.choice(geno.shape[0], 30000)
                                                                                                     #genos = geno[randoms,:]
 
 genotype = ori_shuffled_genom
+#print("genotype",genotype.shape)
 
-                                                                                                    #Calculate Qscores here
+#Calculate Qscores here
 sigma_geno = 1
 U, S, V_t = np.linalg.svd(np.transpose(expr),full_matrices=False)                                   #, Check this
 fact = sigma_geno**2 / sigbeta**2
@@ -255,6 +258,22 @@ f_degree = Rmean / alpha
 pval_R = 1 - chi2.cdf(Rsvd/alpha,f_degree)
 
 ################## Plotting ###########################
+#Q_pval = np.load("/home/anubhavk/Desktop/Internship_Qstat/Pval_newcorr.npy")
+plt.figure(figsize=(10,10))
+plt.hist(pval_R,bins = 100)
+plt.savefig("pval_hist.png")
+
+plt.show()
+#x = np.sort(np.random.uniform(0,1,Q_pval.shape[0]))
+#y = np.sort(Q_pval)
+x = -np.log10(np.sort(np.random.uniform(0,1, pval_R.shape[0])))
+y = -np.log10(np.sort(pval_R))
+plt.plot([0, 10],[0,10])
+plt.xlabel("Expected_Pvals")
+plt.ylabel("Observed_Pvals")
+plt.scatter(x,y, color="red")
+plt.savefig("neg_logP.png")
+plt.show()
 
 FinvP = np.sqrt(2) * erfinv(2 * np.sort(pval_R) - 1)
 P_null = np.linspace(0,1,pval_R.shape[0])                                                           #np.random.uniform(0,1,pval_R.shape[0])
@@ -266,6 +285,6 @@ plt.xlabel("-FinvP_null")
 plt.ylabel("-FinvP")
 plt.plot([-6,6], [-6,6])
 plt.axes().set_aspect('equal')
-plt.savefig("comparison_rev_reg_FinvP.png")
+plt.savefig("shuffled_comparison_rev_reg_FinvP.png")
 plt.show()
 
