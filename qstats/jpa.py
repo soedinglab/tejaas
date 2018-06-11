@@ -7,17 +7,18 @@ from utils import mpihelper
 
 class JPA:
 
-    def __init__(self, x, y, start, end, mpi = False, rank = 0, comm = None, ncore = 1):
+    def __init__(self, x, y, comm, rank, ncore, qcalc):
         self.gt = x
         self.gx = y
-        self.start = start
-        self.end = end
-        self.mpi = mpi
         self._pvals = None
         self._qscores = None
         self.rank = rank
         self.comm = comm
         self.ncore = ncore
+        self.qcalc = qcalc
+        self.mpi = False
+        if self.ncore > 1:
+            self.mpi = True
 
 
     @property
@@ -42,7 +43,7 @@ class JPA:
         return res
 
 
-    def ccomp(self, geno, expr):
+    def clinreg(self, geno, expr):
         _path = os.path.dirname(__file__)
         clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
         cfstat = clib.fit
@@ -65,9 +66,16 @@ class JPA:
         success = cfstat(x, y, nsnps, ngene, nsample, fstat)
         pvals = 1 - stats.f.cdf(fstat, 1, nsample-2)
         pvals = pvals.reshape(nsnps, ngene)
+        return pvals
 
-        qscores = np.array([self.jpascore(pvals[i,:]) for i in range(nsnps)])
 
+    def slavejob(self, geno, expr, jpa = True):
+        nsnps = geno.shape[0]
+        pvals = self.clinreg(geno, expr)
+        if jpa:
+            qscores = np.array([self.jpascore(pvals[i,:]) for i in range(nsnps)])
+        else:
+            qscores = np.zeros(nsnps)
         return pvals, qscores
 
 
@@ -88,7 +96,10 @@ class JPA:
         # ==================================
         # Data sent. Now do the calculations
         # ==================================
-        pvals, qscores = self.ccomp(slave_geno, expr)
+        if self.qcalc:
+            pvals, qscores = self.slavejob(slave_geno, expr, jpa = True)
+        else:
+            pvals, qscores = self.slavejob(slave_geno, expr, jpa = False)
 
         pvals   = self.comm.gather(pvals,   root = 0)
         qscores = self.comm.gather(qscores, root = 0)
@@ -106,7 +117,7 @@ class JPA:
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.ccomp(self.gt, self.gx)
+            pvals, qscores = self.slavejob(self.gt, self.gx)
             self._pvals = pvals
             self._qscores = qscores
         return

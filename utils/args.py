@@ -1,25 +1,72 @@
 #!/usr/bin/env python
 
-'''
-    Get user inputs,
-    and check for options.
-'''
-
 import argparse
+import logging
+from utils.logs import MyLogger
+from utils import project
+
+
+class Error(Exception):
+    pass
+
+class LargerEndSnpError(Error):
+    pass
+
+def snprange(mstring):
+    try:
+        incsnps = mstring.split(":")
+        startsnp  = int(incsnps[0].strip())
+        endsnp    = int(incsnps[1].strip())
+        mlist = [startsnp, endsnp]
+        if endsnp < startsnp:
+            raise LargerEndSnpError
+    except IndexError:
+        raise argparse.ArgumentTypeError('Value has to be a range of SNPs separated by colon')
+    except LargerEndSnpError:
+        raise argparse.ArgumentTypeError('End SNP position must be less than start SNP position')
+    return mlist
+
+
+def method_strings(mstring):
+    try:
+        assert (mstring == 'jpa' or mstring == 'jpa-rr' or mstring == 'rr')
+    except AssertionError:
+        raise argparse.ArgumentTypeError('Please specify a correct method')
+    return mstring
+
+
+def null_strings(mstring):
+    try:
+        assert (mstring == 'perm' or mstring == 'maf')
+    except AssertionError:
+        raise argparse.ArgumentTypeError('Please specify a correct null model')
+    return mstring
+
 
 class Args():
 
-    def __init__(self):
-        args = self.parse_args()
+    def __init__(self, comm, rank):
+
+        self.logger = MyLogger(__name__)
+        self.rank = rank
+        self.comm = comm
+
+        args = None
+        if self.rank == 0:
+            args = self.parse_args()
+        args = self.comm.bcast(args, root = 0)
+
         self.vcf_file  = args.vcf_filename
         self.fam_file  = args.fam_filename
         self.gx_file   = args.gx_filename
         self.method    = args.method
         self.outprefix = args.outprefix
-
-        incsnps = args.incsnps.split(":")
-        self.startsnp  = int(incsnps[0].strip())
-        self.endsnp    = int(incsnps[1].strip())
+        if args.incsnps is not None:
+            self.startsnp = args.incsnps[0]
+            self.startsnp = args.incsnps[1]
+        else:
+            self.startsnp  = 0
+            self.endsnp    = 1
         self.psnpcut   = args.psnpthres
         self.pgenecut  = args.pgenethres
         self.maf_file  = args.maf_filename
@@ -27,9 +74,17 @@ class Args():
         self.jpacut    = args.jpathres
         self.jpafile   = args.jpa_filename
         self.ntransmax = args.optim_ntrans
+        self.nullmodel = args.nullmodel
+
+        self.jpa, self.rr = project.method_selector(args.method)
+
+        if self.rank == 0:
+            self.logger.info('Method: {:s}'.format(args.method))
 
 
     def parse_args(self):
+
+        self.logger.info('Running TEJAAS v{:s}'.format(project.version()))
 
         parser = argparse.ArgumentParser(description='Trans-Eqtls from Joint Association AnalysiS (TEJAAS)')
     
@@ -53,7 +108,7 @@ class Args():
     
         parser.add_argument('--method',
                             default='jpa-rr',
-                            type=str,
+                            type=method_strings,
                             dest='method',
                             metavar='STR',
                             help='which method to run: jpa / rr / optim / jpa-rr')
@@ -65,7 +120,7 @@ class Args():
                             help='prefix for all output files')
     
         parser.add_argument('--include-SNPs',
-                            type=str,
+                            type=snprange,
                             dest='incsnps',
                             metavar='START:END',
                             help='colon-separated index of SNPs to be included')
@@ -86,7 +141,7 @@ class Args():
     
         parser.add_argument('--null',
                             default='perm',
-                            type=str,
+                            type=null_strings,
                             dest='nullmodel',
                             metavar='STR',
                             help='which null model to use: perm / maf. The later requires separate maf file')
@@ -108,16 +163,19 @@ class Args():
                             default=20,
                             type=float,
                             dest='jpathres',
+                            metavar='FLOAT',
                             help='RR statistics are calculated for SNPs above this threshold of JPA statistics')
     
         parser.add_argument('--jpafile',
                             type=str,
                             dest='jpa_filename',
+                            metavar='FILE',
                             help='name of jpa output file; required for selecting SNPs for optimization of sigmabeta')
     
         parser.add_argument('--optim-ntrans',
                             type=int,
                             dest='optim_ntrans',
+                            metavar='INT',
                             help='number of trans-eQTLs assumed by TEJAAS for optimization of sigma_beta')
     
         res = parser.parse_args()
