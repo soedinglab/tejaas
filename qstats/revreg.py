@@ -86,10 +86,10 @@ class RevReg:
         slv_sb2 = sb2[start:end]
         slv_sx2 = sx2[start:end]
         if self.null == 'perm':
-            p, q, mu, sig = rrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
+            p, q, mu, sig = crrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
         elif self.null == 'maf':
             slv_maf = maf[start:end]
-            p, q, mu, sig = rrstat.maf_null (slv_gt, slv_gx, slv_sb2, slv_sx2, slv_maf)
+            p, q, mu, sig = crrstat.maf_null (slv_gt, slv_gx, slv_sb2, slv_sx2, slv_maf)
         return p, q, mu, sig
 
 

@@ -4,17 +4,17 @@ import os
 
 def crevreg(geno, expr, sb2, null, maf):
     _path = os.path.dirname(__file__)
-    clib = np.ctypeslib.load_library('../lib/reverse_regression.so', _path)
-    cqscore = clib.driver
-    cqscore.restype = ctypes.c_int
+    clib = np.ctypeslib.load_library('../lib2/reverse_regression.so', _path)
+    cqscore = clib.qscore
+    cqscore.restype = ctypes.c_bool
     cqscore.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         ctypes.c_int,
+                        ctypes.c_int,
+                        ctypes.c_int,
+                        ctypes.c_int,
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
-                        ctypes.c_int,
-                        ctypes.c_int,
-                        ctypes.c_int,
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
@@ -30,10 +30,8 @@ def crevreg(geno, expr, sb2, null, maf):
     R = np.zeros(nsnps)
     p = np.zeros(nsnps)
     mu = np.zeros(nsnps)
-    sig2 = np.zeros(nsnps)
-
-    success = cqscore(x, y, sb2, null, maf, ngenes, nsnps, nsamples, R, p, mu, sig2)
-    sigma = np.sqrt(sig2)
+    sigma = np.zeros(nsnps)
+    success = cqscore(x, y, sb2, ngenes, nsnps, nsamples, null, maf, R, p, mu, sigma)
     return p, R, mu, sigma
 
 
