@@ -6,6 +6,7 @@ import ctypes
 import logging
 from utils import mpihelper
 from qstats import rrstat
+from qstats import crrstat
 from utils.logs import MyLogger
 
 class RevReg:

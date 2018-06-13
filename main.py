@@ -12,17 +12,18 @@ from mpi4py import MPI
 from utils.args import Args
 from utils.logs import MyLogger
 from utils import project
+from utils import iotools
 from qstats.jpa import JPA
 from qstats.revreg import RevReg
 
 
-nsnps = 10000
-ngene = 23000
+nsnps = 20
+ngene = 23973
 nsample = 338
 start = 1
 end = nsnps
-#geno = np.random.rand(nsnps * nsample).reshape(nsnps, nsample)
-expr = np.random.rand(ngene * nsample).reshape(ngene, nsample)
+sigbeta = 0.005
+_, expr, _ = iotools.read_expression("GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt")
 
 # ==================================================
 # Start MPI calculation
@@ -42,10 +43,11 @@ dosage = None
 geno = None
 maf = None
 if rank == 0:
-    fmin = 0.4
-    mafratios = np.array([(1 - fmin)**2, 2 * fmin * (1 - fmin), fmin**2])
-    
-    nfreq  = np.random.multinomial(nsample, mafratios, size=1)
+    fmin = 0.1
+    #mafratios = np.array([(1 - fmin)**2, 2 * fmin * (1 - fmin), fmin**2])
+    #nfreq  = np.random.multinomial(nsample, mafratios, size=1)
+
+    nfreq = np.array([[279,  54,   5]])
     f1 = np.repeat(0, nfreq[0][0])
     f2 = np.repeat(1, nfreq[0][1])
     f3 = np.repeat(2, nfreq[0][2])
@@ -53,8 +55,8 @@ if rank == 0:
     
     dosage = np.zeros((nsnps, nsample))
     for i in range(nsnps):
-        #dosage[i, :] = np.random.permutation(x)
-        dosage[i, :] = np.random.binomial(2, fmin, nsample)
+        dosage[i, :] = np.random.permutation(x)
+        #dosage[i, :] = np.random.binomial(2, fmin, nsample)
         
     maf = np.repeat(fmin, nsnps)
     geno = dosage - np.mean(dosage, axis = 1).reshape(-1, 1)
@@ -64,8 +66,8 @@ geno = comm.bcast(geno, root = 0)
 maf  = comm.bcast(maf,  root = 0)
 comm.barrier()
 
-jpa = JPA(geno, expr, comm, rank, ncore, args.jpa)
-jpa.compute()
+#jpa = JPA(geno, expr, comm, rank, ncore, args.jpa)
+#jpa.compute()
 
 # Select the SNPs with JPA score above threshold for RevReg
 if args.jpa and args.rr:
@@ -81,14 +83,14 @@ if args.jpa and args.rr:
 if args.rr:
     if args.nullmodel == 'maf':
         f = maf.reshape(-1, 1)
-        geno = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
-    sigbeta2 = np.repeat(0.001 ** 2, geno.shape[0])
+        #geno = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
+    sigbeta2 = np.repeat(sigbeta ** 2, geno.shape[0])
     rr = RevReg(geno, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
     rr.compute()
 
 # Output handling only from master node // move it to module
 if rank == 0:
-    pvals = jpa.pvals
+#    pvals = jpa.pvals
 #    logger.debug('Pval matrix size: {:d} x {:d}'.format(pvals.shape[0], pvals.shape[1]))
 #    outhandler = OutputHandler(outprefix, compute_jpa, compute_rr)
 #    outhandler.writedb(snpinfo, geneinfo, pvals)
@@ -100,6 +102,7 @@ if rank == 0:
         rrscores = rr.scores
         mu = np.mean(rr.null_mu)
         sigma = np.mean(rr.null_sigma)
+        print(rrscores)
         logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
         logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
 #        outhandler.writerr(snpinfo, rrscores)
