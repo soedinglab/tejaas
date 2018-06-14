@@ -78,6 +78,10 @@ class Args():
 
         self.jpa, self.rr = project.method_selector(args.method)
 
+        self.simulate  = args.simulate
+        self.simparams = args.simparams
+        self.maketest  = args.maketest
+
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
 
@@ -177,6 +181,21 @@ class Args():
                             dest='optim_ntrans',
                             metavar='INT',
                             help='number of trans-eQTLs assumed by TEJAAS for optimization of sigma_beta')
-    
+
+        parser.add_argument('--simulate',
+                            dest='simulate',
+                            action='store_true',
+                            help='perform simulation, modify simparams to change default values')
+
+        parser.add_argument('--simparams',
+                            nargs='*',
+                            dest='simparams',
+                            help='fmin, fmax, nsnp')
+
+        parser.add_argument('--test',
+                            dest='maketest',
+                            action='store_true',
+                            help='whether to do test run')
+
         res = parser.parse_args()
         return res

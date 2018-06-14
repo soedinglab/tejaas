@@ -5,6 +5,8 @@ INCLUDEFLAGS := -DMKL_ILP64 -m64 -I${MKLROOT}/include
 SHAREFLAGS := -O3 -shared -fPIC
 
 all: reverse_regression.so linear_regression.so
+linreg: linear_regression.so
+svdonly: svd.so
 
 linear_regression.so: linear_regression.c
 	$(CC) $< $(SHAREFLAGS) $(INCLUDEFLAGS) -o $@
@@ -12,5 +14,8 @@ linear_regression.so: linear_regression.c
 reverse_regression.so: reverse_regression.c
 	$(CC) $< $(LIBFLAGS) $(SHAREFLAGS) $(INCLUDEFLAGS) -o $@
 
+svd.so: svd.c
+	$(CC) $< $(LIBFLAGS) $(SHAREFLAGS) $(INCLUDEFLAGS) -o $@
+
 clean:
-	rm -rf linear_regression.so reverse_regression.so
+	rm -rf linear_regression.so reverse_regression.so svd.so

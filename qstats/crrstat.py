@@ -4,7 +4,7 @@ import os
 
 def crevreg(geno, expr, sb2, null, maf):
     _path = os.path.dirname(__file__)
-    clib = np.ctypeslib.load_library('../lib2/reverse_regression.so', _path)
+    clib = np.ctypeslib.load_library('../lib/reverse_regression.so', _path)
     cqscore = clib.qscore
     cqscore.restype = ctypes.c_bool
     cqscore.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),

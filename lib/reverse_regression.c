@@ -12,6 +12,7 @@
  *       Compiler:  gcc
  *
  *         Author:  Saikat Banerjee (banskt), bnrj.saikat@gmail.com
+ *         			Raktim Mitra (timkartar), timkartar7879@gmail.com
  *   Organization:  Max Planck Institute for Biophysical Chemistry
  *
  * =====================================================================================
@@ -33,6 +34,10 @@ bool getSmod( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int n
 bool getW(double* U, double* Smod, double* W, int nsample, int nS, int ioff);
 double vecT_smat_vec ( int n, double* v, double* A, double* D );
 double permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ, int nsample );
+void getWnullmaf ( double* W, double* SM, double* muQmaf, double* sig2Qmaf, double* sumW2nn, int N, int ioff );
+double qnull_maf ( double Q, double mu, double sigma );
+double gt4maf ( double f );
+
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -47,6 +52,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	int info;
 	int nS;                                     /* number of components of SVD */
 	double dQ;
+	double muQmaf, sig2Qmaf, sumW2nn;
 
 	success = false;
 	nS = min(ngene, nsample);
@@ -84,7 +90,6 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	if ( success == false ) goto cleanup;
 
 	genotype_variance(GT, nsnp, nsample, SX2, null);
-	printf("%g\n", SX2[2]);
 
 	success = getSmod (S, SM, SX2, SB2, nsnp, nS);
 	if ( success == false ) goto cleanup;
@@ -92,6 +97,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	if (null == MAF_NULL) {                            /* fixed W for all SNPs with MAF null, because sigmax2 = 1 */
 		success = getW (U, SM, W, nsample, nS, 0);
 		if ( success == false ) goto cleanup;
+		getWnullmaf ( W, SM, &muQmaf, &sig2Qmaf, &sumW2nn, nS, 0);
 	}
 
 	for ( int i = 0; i < nsnp; i++ ) {
@@ -110,8 +116,10 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 			P[i] = permuted_null ( nS, X, W, Q[i], &MUQ[i], &SIGQ[i], nsample );
 		}
 		else if ( null == MAF_NULL ) {
-			//success = maf_null ();
-			P[i] = 1;
+			MUQ[i] = muQmaf;
+			SIGQ[i] = sqrt( sig2Qmaf + (gt4maf(MAF[i]) - 3) * sumW2nn );
+			printf ( "SigQMAF: %g,  x4: %g, W2nn: %g \n", sig2Qmaf, gt4maf(MAF[i]), sumW2nn);
+			P[i] = qnull_maf(Q[i], MUQ[i], SIGQ[i]);
 		}
 
 	}
@@ -169,6 +177,27 @@ fourth_moment ( double* A, int n )
     }
     return sum / n;
 }       /* -----  end of function fourth_moment  ----- */
+
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  gt4maf
+ *  Description:  
+ * =====================================================================================
+ */
+	double
+gt4maf ( double f )
+{
+	double f0 = (1 - f) * (1 - f);
+	double f1 = 2.0 * f * (1 - f);
+	double f2 = f * f;
+	double mu = 2 * f;
+	double sig = sqrt(f1);
+	double x4 = f0 *  pow((-mu/sig), 4) + f1 * pow(((1 - mu)/sig), 4) + f2 * pow(((2 - mu)/sig), 4);
+
+	return x4;
+}		/* -----  end of function gt4maf  ----- */
 
 
 /* 
@@ -242,6 +271,25 @@ cleanup_q31_left:
 }		/* -----  end of function permuted_null  ----- */
 
 
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  qnull_maf
+ *  Description:  
+ * =====================================================================================
+ */
+	double
+qnull_maf ( double Q, double mu, double sigma )
+{
+	double sig2 = sigma * sigma;
+	double mscale = (sig2 / mu) / 2.0;
+	double df = mu / mscale;
+	double Qscale = Q / mscale;
+	double pvals = chisqr( (int)df, (double)Qscale );
+	return pvals;
+}		/* -----  end of function qnull_maf  ----- */
+
+
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  getSmod
@@ -283,6 +331,34 @@ getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff )
 	}
 	return true;
 }		/* -----  end of function getW  ----- */
+
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  getWnullmaf
+ *  Description:  
+ * =====================================================================================
+ */
+	void
+getWnullmaf ( double* W, double* Smod, double* muQmaf, double* sig2Qmaf, double* sumW2nn, int N, int ioff )
+{
+	double mu = 0;
+	double sig2 = 0;
+	double sum = 0;
+	
+	for ( int i = 0; i < N; i++ ) {
+		mu += Smod [ioff + i];
+		sig2 += 2.0 * Smod[ioff + i] * Smod[ioff + i];
+		sum += W[ i*N + i ] * W[ i*N + i ];
+	}
+
+	*muQmaf = mu;	
+	*sig2Qmaf = sig2;
+	*sumW2nn = sum;
+
+	return;
+}		/* -----  end of function getWnullmaf  ----- */
 
 
 /* 

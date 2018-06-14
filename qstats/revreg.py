@@ -90,6 +90,7 @@ class RevReg:
         elif self.null == 'maf':
             slv_maf = maf[start:end]
             p, q, mu, sig = crrstat.maf_null (slv_gt, slv_gx, slv_sb2, slv_sx2, slv_maf)
+        self.logger.debug("Reporting from node {:d}. Sigma = " + np.array2string(sig) + "\n" )
         return p, q, mu, sig
 
 
