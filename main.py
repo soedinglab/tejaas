@@ -21,12 +21,13 @@ from iotools.data import Data
 # Start MPI calculation
 # =================================================
 
-start_time = time.time()
 
 MPI.Init()
 comm = MPI.COMM_WORLD
 rank = comm.Get_rank()
 ncore = comm.Get_size()
+
+if rank == 0: start_time = time.time()
 
 args = Args(comm, rank)
 logger = MyLogger(__name__)
@@ -55,8 +56,12 @@ expr   = comm.bcast(expr,  root = 0)
 maf  = comm.bcast(maf, root = 0)
 comm.barrier()
 
+if rank == 0: read_time = time.time()
+
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
 jpa.compute()
+
+if rank == 0: jpa_time = time.time()
 
 # Select the SNPs with JPA score above threshold for RevReg
 if args.jpa and args.rr:
@@ -77,6 +82,8 @@ if args.rr:
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
     rr.compute()
 
+if rank == 0: rr_time = time.time()
+
 # Output handling only from master node // move it to module
 if rank == 0:
     pvals = jpa.pvals
@@ -96,7 +103,13 @@ if rank == 0:
         logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
 #        outhandler.writerr(snpinfo, rrscores)
 
+if rank == 0: write_time = time.time()
+
 if rank == 0:
-    print ("Job completed in {:g} seconds".format(time.time() - start_time))
+    print ("File reading time: {:g} seconds".format(read_time - start_time))
+    print ("JPA calculation time: {:g} seconds".format (jpa_time - read_time))
+    print ("RR calculation time: {:g} seconds".format (rr_time - jpa_time))
+    print ("Result writing time: {:g} seconds".format(write_time - rr_time))
+    print ("Total execution time: {:g} seconds".format(time.time() - start_time))
 
 MPI.Finalize()

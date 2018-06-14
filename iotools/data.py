@@ -50,9 +50,9 @@ class Data():
         sampleids, expr, gene_names = readrpkm.read_expression(gx_file)
 
         if self.args.simparams is not None:
-            fmin = self.args.simparams[0]
-            fmax = self.args.simparams[1]
-            nsnp = self.args.simparams[2]
+            fmin = float(self.args.simparams[0])
+            fmax = float(self.args.simparams[1])
+            nsnp = int(self.args.simparams[2])
             snpinfo, gtnorm, gtcent = simulate.single_snp_permute(nsnp = nsnp, nsample = expr.shape[1], fmin = fmin, maketest = maketest)
         else:
             snpinfo, gtnorm, gtcent = simulate.single_snp_permute(maketest = maketest)

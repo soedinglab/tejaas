@@ -57,9 +57,10 @@ double gamma(double N)
 	long double F = 1.0;
 	long double Ck;
     long double Sum = SQRT2PI;
+    int K;
 
 
-	for(int K = 1; K < ACCURACY; K++)
+	for(K = 1; K < ACCURACY; K++)
 	{
 	    Z++;
 		Ck = powl(ACCURACY - K, K - 0.5);
@@ -94,10 +95,11 @@ long double log_gamma(double N)
 
 	long double F = 1.0;
 	long double Ck;
-    long double Sum = SQRT2PI;
+	long double Sum = SQRT2PI;
+	int K;
 
 
-	for(int K = 1; K < ACCURACY; K++)
+	for(K = 1; K < ACCURACY; K++)
 	{
 	    Z++;
 		Ck = powl(ACCURACY - K, K - 0.5);

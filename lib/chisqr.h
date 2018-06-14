@@ -88,8 +88,9 @@ static long double KM(long double S, long double Z)
 	long double Sum = 1.0;
 	long double Nom = 1.0;
 	long double Denom = 1.0;
+	int I = 0;
 
-	for(int I = 0; I < 1000; I++) // Loops for 1000 iterations
+	for(I = 0; I < 1000; I++) // Loops for 1000 iterations
 	{
 		Nom *= Z;
 		S++;
@@ -120,8 +121,9 @@ static double igf(double S, double Z)
 	long double Sum = 1.0;
 	long double Nom = 1.0;
 	long double Denom = 1.0;
+	int I;
 
-	for(int I = 0; I < 200; I++) // 200
+	for(I = 0; I < 200; I++) // 200
 	{
 		Nom *= Z;
 		S++;

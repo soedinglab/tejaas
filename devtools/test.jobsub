@@ -1,0 +1,19 @@
+#!/bin/sh
+#BSUB -J tejaas_test
+#BSUB -q mpi
+#BSUB -W 48:00
+#BSUB -n 8
+#BSUB -o tejaas_test.o%J
+#BSUB -e tejaas_test.e%J
+#BSUB -a intelmpi
+#BSUB -R "span[hosts=1]"
+#BSUB -R scratch
+
+module load intel/compiler/64/2017/17.0.2
+module load intel/mkl/64/2017/2.174
+module load openmpi/intel/64/1.10.7
+
+source activate py35
+TEJAAS="${HOME}/trans-eQTL/codebase/tejaas/bin/tejaas"
+EXPRFILE="/scratch/sbanerj/trans-eQTL/data/GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt"
+mpirun -n 8 ${TEJAAS} --gx ${EXPRFILE} --simulate --test --method rr --null perm --simparams 0.1 0.1 1000
