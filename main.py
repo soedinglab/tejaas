@@ -79,9 +79,9 @@ if args.rr:
 
 # Output handling only from master node // move it to module
 if rank == 0:
-#    pvals = jpa.pvals
-#    logger.debug('Pval matrix size: {:d} x {:d}'.format(pvals.shape[0], pvals.shape[1]))
-#    outhandler = OutputHandler(outprefix, compute_jpa, compute_rr)
+    pvals = jpa.pvals
+    logger.debug('Pval matrix size: {:d} x {:d}'.format(pvals.shape[0], pvals.shape[1]))
+#    outhandler = OutputHandler(outprefix)
 #    outhandler.writedb(snpinfo, geneinfo, pvals)
     if args.jpa:
         jpascores = jpa.scores
@@ -89,10 +89,11 @@ if rank == 0:
 #        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
     if args.rr:
         rrscores = rr.scores
+        pvals = rr.pvals
         mu = np.mean(rr.null_mu)
         sigma = np.mean(rr.null_sigma)
-        logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
-        logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
+#        logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
+#        logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
 #        outhandler.writerr(snpinfo, rrscores)
 
 if rank == 0:

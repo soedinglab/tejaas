@@ -56,30 +56,6 @@ class RevReg:
         return self._sigma
 
 
-#    def crevreg(self, geno, expr):
-#        _path = os.path.dirname(__file__)
-#        clib = np.ctypeslib.load_library('../lib/reverse_regression.so', _path)
-#        cqscore = clib.qscore
-#        cqscore.restype = ctypes.c_int
-#        cqscore.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
-#                            np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
-#                            ctypes.c_int,
-#                            ctypes.c_int,
-#                            ctypes.c_int,
-#                            np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED')
-#                           ]
-#    
-#        x = geno.reshape(-1,)
-#        y = expr.reshape(-1,)
-#        xsize = x.shape[0]
-#        nsnps = geno.shape[0]
-#        nsample = geno.shape[1]
-#        ngene = expr.shape[0]
-#        fstat = np.zeros(nsnps * ngene)
-#        success = cqscore(x, y, nsnps, ngene, nsample, fstat)
-#        return pvals, qscores, mu, sigma
-
-
     def slavejob(self, gt, gx, sb2, sx2, maf, start, end):
         slv_gt  = gt[start:end, :]
         slv_gx  = gx
