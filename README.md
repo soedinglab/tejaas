@@ -24,17 +24,23 @@ TEJAAS is written in python and C. To run TEJAAS, you will need
 
 ### (Example) Instructions for GWDG cluster at MPIBPC
 1. (Optional) Uninstall mpi4py if you already have it installed
+```
+source activate {envname}
+pip uninstall mpi4py
+conda remove mpi4py
+```
 2. Load the modules
 ```
 module load intel/compiler/64/2017/17.0.2
 module load intel/mkl/64/2017/2.174
 module load openmpi/intel/64/1.10.7
 ```
-3. Install mpi4py (so that it will now link to openmpi and mkl)
+3. Change to your python environment and install mpi4py (so that it will now link to openmpi and mkl)
 ```
+source activate {envname}
 conda install mpi4py
 ```
-4. Make the `C` libraries
+4. Compile the `C` libraries.
 ```
 cd lib
 make clean
