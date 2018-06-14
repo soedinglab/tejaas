@@ -84,6 +84,8 @@ class Args():
 
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
+            if self.rr:
+                self.logger.info('Null Model: {:s}'.format(args.nullmodel))
 
 
     def parse_args(self):

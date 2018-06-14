@@ -92,8 +92,8 @@ if rank == 0:
         pvals = rr.pvals
         mu = np.mean(rr.null_mu)
         sigma = np.mean(rr.null_sigma)
-#        logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
-#        logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
+        logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
+        logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
 #        outhandler.writerr(snpinfo, rrscores)
 
 if rank == 0:
