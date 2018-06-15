@@ -1,7 +1,7 @@
 import numpy as np
 from iotools import readrpkm
 from iotools import simulate
-
+from utils.containers import GeneInfo
 
 class Data():
 
@@ -58,7 +58,14 @@ class Data():
             snpinfo, gtnorm, gtcent = simulate.single_snp_permute(maketest = maketest)
 
         self._expr = expr
-        self._geneinfo = 0
+        self._geneinfo = list()
+        for i in range(expr.shape[0]):
+            this_gene = GeneInfo(name = "x-gene",
+                                 ensembl_id = str(i),
+                                 chrom = 1,
+                                 start = 1,
+                                 end   = 2)
+            self._geneinfo.append(this_gene)
         self._gtnorm = gtnorm
         self._gtcent = gtcent
         self._snpinfo = snpinfo

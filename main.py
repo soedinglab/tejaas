@@ -91,8 +91,9 @@ if rank == 0:
     if(args.outprefix is None):
         logger.debug('No outfile prefix given, using default names\n')
         args.outprefix = "out"
-#    outhandler = OutputHandler(outprefix)
-#    outhandler.writedb(snpinfo, geneinfo, pvals)
+    dbwriter = outhandler.DBwriter(snpinfo, geneinfo, jpa.pvals, args.outprefix + ".db" )
+    dbwriter.write()
+
     if args.jpa:
         jpascores = jpa.scores
 #        outhandler.writejpa(snpinfo, jpascores)
