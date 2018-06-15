@@ -59,7 +59,6 @@ double gamma(double N)
     long double Sum = SQRT2PI;
     int K;
 
-
 	for(K = 1; K < ACCURACY; K++)
 	{
 	    Z++;
@@ -97,7 +96,6 @@ long double log_gamma(double N)
 	long double Ck;
 	long double Sum = SQRT2PI;
 	int K;
-
 
 	for(K = 1; K < ACCURACY; K++)
 	{

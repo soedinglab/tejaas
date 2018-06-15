@@ -1,7 +1,8 @@
 import numpy as np
 from iotools import readrpkm
 from iotools import simulate
-
+from iotools.readOxford import ReadOxford
+from iotools.readRPKM import ReadRPKM
 
 class Data():
 
@@ -39,9 +40,51 @@ class Data():
         return self._expr
 
 
-    def load(self):
-        print ("Completed data reading")
+    def select_donors(self, vcf_donors, expr_donors):
+        ''' Make sure that donors are in the same order for both expression and genotype
+        '''
+        common_donors = [x for x in vcf_donors if x in expr_donors]
+        vcfmask = np.array([vcf_donors.index(x) for x in common_donors])
+        exprmask = np.array([expr_donors.index(x) for x in common_donors])
+        return vcfmask, exprmask
 
+    def normalize_and_center_dosage(self, dosage):
+        f = [snp.maf for snp in self._snpinfo]
+        f = np.array(f).reshape(-1, 1)
+        self._gtnorm = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
+        self._gtcent = dosage - np.mean(dosage, axis = 1).reshape(-1, 1)
+
+    def load(self):
+        # Read Oxford File
+        if self.args.oxf_file:
+            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp)
+            dosage = oxf.dosage
+            gt_donor_ids = oxf.samplenames
+            self._snpinfo = oxf.snpinfo
+
+        # Read VCF file
+        if self.args.vcf_file:
+            vcf = ReadVCF(self.args.vcf_file, self.args.startsnp, self.args.endsnp)
+            dosage = vcf.dosage
+            gt_donor_ids = vcf.donor_ids
+            self._snpinfo = oxf.snpinfo
+
+        self.normalize_and_center_dosage(dosage)
+
+        # Gene Expression
+        rpkm = ReadRPKM(self.args.gx_file, "gtex")
+        expression = rpkm.expression
+        expr_donors = rpkm.donor_ids
+        gene_names = rpkm.gene_names
+
+        # reorder donors gt and expr
+        vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
+
+        self._expr = expression[:, exprmask]
+        self._gtnorm = self._gtnorm[:, vcfmask]
+        self._gtcent = self._gtcent[:, vcfmask]
+
+        print ("Completed data reading")
 
     def simulate(self):
 

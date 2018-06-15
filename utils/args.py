@@ -57,13 +57,14 @@ class Args():
         args = self.comm.bcast(args, root = 0)
 
         self.vcf_file  = args.vcf_filename
+        self.oxf_file  = args.oxf_filename
         self.fam_file  = args.fam_filename
         self.gx_file   = args.gx_filename
         self.method    = args.method
         self.outprefix = args.outprefix
         if args.incsnps is not None:
             self.startsnp = args.incsnps[0]
-            self.startsnp = args.incsnps[1]
+            self.endsnp   = args.incsnps[1]
         else:
             self.startsnp  = 0
             self.endsnp    = 1
@@ -99,6 +100,12 @@ class Args():
                             dest='vcf_filename',
                             metavar='FILE',
                             help='input VCF file')
+
+        parser.add_argument('--oxf',
+                            type=str,
+                            dest='oxf_filename',
+                            metavar='FILE',
+                            help='input Oxford file')
     
         parser.add_argument('--fam',
                             type=str,
