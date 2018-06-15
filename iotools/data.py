@@ -1,6 +1,7 @@
 import numpy as np
 from iotools import readrpkm
 from iotools import simulate
+from iotools import readgtf
 from iotools.readOxford import ReadOxford
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo
@@ -49,6 +50,16 @@ class Data():
         exprmask = np.array([expr_donors.index(x) for x in common_donors])
         return vcfmask, exprmask
 
+    def select_genes(self, info, names):
+        ''' Select genes which would be analyzed. 
+            Make sure the indices are not mixed up
+        '''
+        allowed = [x.ensembl_id for x in info]
+        common  = [x for x in names if x in allowed]
+        genes = [x for x in info if x.ensembl_id in common]
+        indices = [names.index(x.ensembl_id) for x in genes]
+        return genes, np.array(indices)
+
     def normalize_and_center_dosage(self, dosage):
         f = [snp.maf for snp in self._snpinfo]
         f = np.array(f).reshape(-1, 1)
@@ -78,10 +89,13 @@ class Data():
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
 
+        gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
+
         # reorder donors gt and expr
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
+        genes, indices = self.select_genes(gene_info, gene_names)
 
-        self._expr = expression[:, exprmask]
+        self._expr = expression[:, exprmask][indices, :]
         self._gtnorm = self._gtnorm[:, vcfmask]
         self._gtcent = self._gtcent[:, vcfmask]
 
