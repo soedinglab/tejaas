@@ -22,7 +22,7 @@ def single_snp_permute(nsnp = 10, nsample = 338, fmin = 0.1, maketest = False):
         dosage[i, :] = np.random.permutation(x)
         this_snp = SnpInfo(chrom      = 1,
                            bp_pos     = i,
-                           varid      = i,
+                           varid      = 'rs{:d}'.format(i),
                            ref_allele = 'A',
                            alt_allele = 'T',
                            maf        = fmin)

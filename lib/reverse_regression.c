@@ -311,7 +311,7 @@ cdf_norm ( double x, double mu, double sigma )
 	vdCdfNorm( 1, QS, P );
 	pval = 1 - P[0];
 	
-	printf ("M: %g, S: %g, Q: %g, p: %g\n", mu, sigma, x, pval);
+	//printf ("M: %g, S: %g, Q: %g, p: %g\n", mu, sigma, x, pval);
 
 cleanup:
 cleanup_QS:
