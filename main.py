@@ -16,7 +16,7 @@ from utils import iotools
 from qstats.jpa import JPA
 from qstats.revreg import RevReg
 from iotools.data import Data
-
+import iotools.outhandler as outhandler
 # ==================================================
 # Start MPI calculation
 # =================================================
@@ -88,12 +88,17 @@ if rank == 0: rr_time = time.time()
 if rank == 0:
     pvals = jpa.pvals
     logger.debug('Pval matrix size: {:d} x {:d}'.format(pvals.shape[0], pvals.shape[1]))
-#    outhandler = OutputHandler(outprefix)
-#    outhandler.writedb(snpinfo, geneinfo, pvals)
+    if(args.outprefix is None):
+        logger.debug('No outfile prefix given, using default names\n')
+        args.outprefix = "out"
+    dbwriter = outhandler.DBwriter(snpinfo, geneinfo, jpa.pvals, args.outprefix + ".db" )
+    dbwriter.write()
+
     if args.jpa:
         jpascores = jpa.scores
-#        outhandler.writejpa(snpinfo, jpascores)
-#        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
+        jpawriter = outhandler.jpaOutWriter(snpinfo, jpascores, args.outprefix + "_jpa.txt")
+        jpawriter.write()
+        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
     if args.rr:
         rrscores = rr.scores
         pvals = rr.pvals
@@ -101,7 +106,8 @@ if rank == 0:
         sigma = np.mean(rr.null_sigma)
         logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
         logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
-#        outhandler.writerr(snpinfo, rrscores)
+        rrwriter = outhandler.rrOutWriter(snpinfo, rr.pvals, rr.scores, rr.null_mu, rr.null_sigma, args.outprefix + "_rr.txt")
+        rrwriter.write()
 
 if rank == 0: write_time = time.time()
 

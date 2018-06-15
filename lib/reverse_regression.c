@@ -24,7 +24,6 @@
 
 #include "svd.h"
 #include "utils.h"                              /* min, transpose */
-#include "chisqr.h"
 
 #define MAF_NULL 1
 #define PERM_NULL 2
@@ -35,8 +34,9 @@ bool getW(double* U, double* Smod, double* W, int nsample, int nS, int ioff);
 double vecT_smat_vec ( int n, double* v, double* A, double* D );
 double permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ, int nsample );
 void getWnullmaf ( double* W, double* SM, double* muQmaf, double* sig2Qmaf, double* sumW2nn, int N, int ioff );
-double qnull_maf ( double Q, double mu, double sigma );
+//double qnull_maf ( double Q, double mu, double sigma );
 double gt4maf ( double f );
+double cdf_norm ( double x, double mu, double sigma );
 
 
 /* 
@@ -118,8 +118,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 		else if ( null == MAF_NULL ) {
 			MUQ[i] = muQmaf;
 			SIGQ[i] = sqrt( sig2Qmaf + (gt4maf(MAF[i]) - 3) * sumW2nn );
-			printf ( "SigQMAF: %g,  x4: %g, W2nn: %g \n", sig2Qmaf, gt4maf(MAF[i]), sumW2nn);
-			P[i] = qnull_maf(Q[i], MUQ[i], SIGQ[i]);
+			P[i] = cdf_norm (Q[i], MUQ[i], SIGQ[i] ); //qnull_maf(Q[i], MUQ[i], SIGQ[i]);
 		}
 
 	}
@@ -210,7 +209,7 @@ gt4maf ( double f )
 permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ, int nsample )
 {
 	bool success;
-    double pval, sig2;
+	double pval, sig2;
 
 	double q11 = 0, q2 = 0, q31 = 0, q4 = 0, q22 = 0, q211 = 0, v31 = 0, v22 = 0, v211 = 0, v1111 = 0;
 
@@ -220,8 +219,8 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 	double *q31_right = (double *) mkl_malloc( N * sizeof( double ), 64 );
 	if (q31_right == NULL) {success = false; goto cleanup_q31_right;}
 
-    double gtmu2  = second_moment(X, nsample);
-    double gtmu4  = fourth_moment(X, nsample);
+	double gtmu2  = second_moment(X, nsample);
+	double gtmu4  = fourth_moment(X, nsample);
 
 
 	for( int i=0; i < N; i++ ){
@@ -256,10 +255,8 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 	sig2  =  sig2 - (*muQ) * (*muQ);
 	*sigQ = sqrt(sig2);
-	double mscale = (sig2 / *muQ ) / 2.0;
-	double df = *muQ / mscale;
-	double Qscaled = Q / mscale;
-	pval = chisqr((int)df, (double)Qscaled);
+
+	pval = cdf_norm (Q, *muQ, *sigQ);
 
 cleanup:
 cleanup_q31_right:
@@ -277,7 +274,6 @@ cleanup_q31_left:
  *         Name:  qnull_maf
  *  Description:  
  * =====================================================================================
- */
 	double
 qnull_maf ( double Q, double mu, double sigma )
 {
@@ -285,9 +281,47 @@ qnull_maf ( double Q, double mu, double sigma )
 	double mscale = (sig2 / mu) / 2.0;
 	double df = mu / mscale;
 	double Qscale = Q / mscale;
-	double pvals = chisqr( (int)df, (double)Qscale );
-	return pvals;
+	double pval = chisqr( (int)df, (double)Qscale );
+	printf ("M: %g, S: %g, Q: %g, Qs: %g, df: %g, p: %g\n", mu, sigma, Q, Qscale, df, pval);
+	return pval;
+}
+ */
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  cdf_norm
+ *  Description:  
+ * =====================================================================================
+ */
+	double
+cdf_norm ( double x, double mu, double sigma )
+{
+
+	double pval;
+
+	double *QS = (double *) mkl_malloc( 1 * sizeof( double ), 64);
+	if (QS == NULL) {goto cleanup_QS;}
+
+	double *P = (double *) mkl_malloc( 1 * sizeof( double ), 64);
+	if (P == NULL) {goto cleanup_P;}
+
+	QS[0] = (x - mu) / sigma;
+	P[0] = 0;
+	vdCdfNorm( 1, QS, P );
+	pval = 1 - P[0];
+	
+	printf ("M: %g, S: %g, Q: %g, p: %g\n", mu, sigma, x, pval);
+
+cleanup:
+cleanup_QS:
+	mkl_free(QS);
+cleanup_P:
+	mkl_free(P);
+
+	return pval;
 }		/* -----  end of function qnull_maf  ----- */
+
 
 
 /* 
