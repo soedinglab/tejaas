@@ -1,32 +1,37 @@
 #!/bin/sh
-#BSUB -J _JOBNAME_
+#BSUB -J _JOBNAME
 #BSUB -q mpi
 #BSUB -W 48:00
 #BSUB -n 8
-#BSUB -o _JOBNAME_.o%J
-#BSUB -e _JOBNAME_.e%J
+#BSUB -o _JOBNAME.o%J
+#BSUB -e _JOBNAME.e%J
 #BSUB -a intelmpi
 #BSUB -R "span[hosts=1]"
+#BSUB -R scratch
 
 module load intel/compiler/64/2017/17.0.2
 module load intel/mkl/64/2017/2.174
 module load openmpi/intel/64/1.10.7
 
-TRANSEQTL="_trn_eqtl"
-GENOTYPE="_genotype"
-GENEEXP="_gene_exp"
-DONORIDS="_donor_id"
-STARTSNP="_startsnp"
-ENDSNP="_endsnp__"
-P_QVAL_CUTOFF="_pqvalcut"
-PVAL_CUTOFF="_pvalcut_"
-OUTPUT="_qstatout"
+GENOFILE=_GTFILE_
+SAMPFILE=_FAMFIL_
+GXPRFILE=_GXFILE_
+OUTPRFIX=_PREFIX_
+INCSTRNG=_ST_END_
+RUN_PATH=_TEJAAS_
+SNPTHRES=_SNPCUT_
+GENTHRES=_GENCUT_
+GENEINFO=_GENINF_
 
 source activate py35
-mpiexec -np 8 python ${TRANSEQTL} \
-                      --genotype ${GENOTYPE} \
-                      --sample ${DONORIDS} \
-                      --expression ${GENEEXP} \
-                      --output ${OUTPUT} \
-                      --start ${STARTSNP} \
-                      --end ${ENDSNP}
+mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
+                        --fam          ${SAMPFILE} \
+                        --gx           ${GXPRFILE} \
+                        --gtf          ${GENEINFO} \
+                        --method       rr \
+                        --null         perm \
+                        --outprefix    ${OUTPRFIX} \
+                        --include-SNPs ${INCSTRNG} \
+                        --psnpthres    ${SNPTHRES} \
+                        --pgenethres   ${GENTHRES} \
+                        --prior-sigma  0.005

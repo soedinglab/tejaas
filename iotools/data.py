@@ -88,6 +88,14 @@ class Data():
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
+        self._geneinfo = list()
+        for gene in gene_names:
+            this_gene = GeneInfo(name = "x-gene",
+                                 ensembl_id = gene,
+                                 chrom = 1,
+                                 start = 1,
+                                 end   = 2)
+            self._geneinfo.append(this_gene)
 
         gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
 
