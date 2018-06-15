@@ -96,8 +96,9 @@ if rank == 0:
 
     if args.jpa:
         jpascores = jpa.scores
-#        outhandler.writejpa(snpinfo, jpascores)
-#        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
+        jpawriter = outhandler.jpaOutWriter(snpinfo, jpascores, args.outprefix + "_jpa.txt")
+        jpawriter.write()
+        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
     if args.rr:
         rrscores = rr.scores
         pvals = rr.pvals
