@@ -19,12 +19,12 @@ class DBwriter:
             tuples  = [ixg[i*(self.pvals.shape[1])+ j] + (self.pvals[i][j],) for i in range(self.pvals.shape[0]) for j in range(self.pvals.shape[1])]
             cursor.executemany(''' INSERT INTO pvals (snpid, geneid, pval) VALUES(?,?,?)''', tuples)
             
-            cursor.execute(''' CREATE TABLE IF NOT EXISTS snpinfo (id INTEGER PRIMARY KEY, varid TEXT, chrom INTEGER, bp_pos INTEGER, ref_allele TEXT, alt_allele TEXT, maf REAL)''')
-            snp_tuples = list((str(i.varid), i.chrom, i.bp_pos, i.ref_allele, i.alt_allele, i.maf) for i in self.snpinfo)
+            cursor.execute(''' CREATE TABLE IF NOT EXISTS snpinfo (id INTEGER PRIMARY KEY, varid TEXT, chrom TEXT, bp_pos INTEGER, ref_allele TEXT, alt_allele TEXT, maf REAL)''')
+            snp_tuples = list((str(i.varid), str(i.chrom), i.bp_pos, i.ref_allele, i.alt_allele, i.maf) for i in self.snpinfo)
             cursor.executemany(''' INSERT INTO snpinfo (varid, chrom, bp_pos, ref_allele, alt_allele, maf) VALUES(?,?,?,?,?,?)''', snp_tuples)
 
-            cursor.execute(''' CREATE TABLE IF NOT EXISTS geneinfo (id INTEGER PRIMARY KEY, ensembl_id TEXT, name TEXT, chrom INTEGER, start INTEGER, end INTEGER)''')
-            gene_tuples = list((i.ensembl_id, i.name, i.chrom, i.start, i.end) for i in self.geneinfo)
+            cursor.execute(''' CREATE TABLE IF NOT EXISTS geneinfo (id INTEGER PRIMARY KEY, ensembl_id TEXT, name TEXT, chrom TEXT, start INTEGER, end INTEGER)''')
+            gene_tuples = list((i.ensembl_id, i.name, str(i.chrom), i.start, i.end) for i in self.geneinfo)
             cursor.executemany(''' INSERT INTO geneinfo (ensembl_id, name, chrom, start, end) VALUES(?,?,?,?,?)''', gene_tuples)
 
             db.commit()
@@ -37,16 +37,17 @@ class DBwriter:
 
 class rrOutWriter:
     def __init__(self, snpinfo, pvals, rscores, mu, sigma, outfile):
-        self.snpids     = [x.varid for x in snpinfo]
+        self.snpinfo    = snpinfo
         self.pvals      = pvals
         self.rscores    = rscores
         self.mu         = mu
         self.sigma      = sigma
         self.outfile    = outfile
+
     def write(self):
         f = open(self.outfile, "w")
-        f.write("snpid\trscore\tpval\tmu\tsigma")
-        outlist = ["\n" + str(self.snpids[i]) + "\t" + str(self.rscores[i]) + "\t" + str(self.pvals[i]) + "\t" + str(self.mu[i]) + "\t" + str(self.sigma[i]) for i in range(len(self.snpids))]
+        f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P'))
+        outlist = ["\n{:s}\t {:d}\t{:g}\t{:g}\t{:g}\t{:g}".format(x.varid, x.bp_pos, self.rscores[i], self.mu[i], self.sigma[i], self.pvals[i]) for i, x in enumerate(self.snpinfo)]
         f.writelines(outlist)
         f.close()
 
