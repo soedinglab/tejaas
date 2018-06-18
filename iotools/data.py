@@ -88,16 +88,8 @@ class Data():
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
-        self._geneinfo = list()
-        for gene in gene_names:
-            this_gene = GeneInfo(name = "x-gene",
-                                 ensembl_id = gene,
-                                 chrom = 1,
-                                 start = 1,
-                                 end   = 2)
-            self._geneinfo.append(this_gene)
-
         gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
+        self._geneinfo = gene_info
 
         # reorder donors gt and expr
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
@@ -112,14 +104,27 @@ class Data():
     def simulate(self):
 
         maketest = self.args.maketest
-        gx_file = self.args.gx_file
-        sampleids, expr, gene_names = readrpkm.read_expression(gx_file)
 
+        # Gene Expression
+        rpkm = ReadRPKM(self.args.gx_file, "gtex")
+        expr = rpkm.expression
+        gene_names = rpkm.gene_names
+        self._geneinfo = list()
+        for gene in gene_names:
+            this_gene = GeneInfo(name = "x-gene",
+                                 ensembl_id = gene,
+                                 chrom = 1,
+                                 start = 1,
+                                 end   = 2)
+            self._geneinfo.append(this_gene)
+
+        # Genotype
         if self.args.simparams is not None:
             fmin = float(self.args.simparams[0])
             fmax = float(self.args.simparams[1])
             nsnp = int(self.args.simparams[2])
             snpinfo, gtnorm, gtcent = simulate.single_snp_permute(nsnp = nsnp, nsample = expr.shape[1], fmin = fmin, maketest = maketest)
+            #snpinfo, gtnorm, gtcent = simulate.multiple_snp_permute(nsnp = nsnp, nsample = expr.shape[1], fmin = fmin, fmax = fmax)
         else:
             snpinfo, gtnorm, gtcent = simulate.single_snp_permute(maketest = maketest)
 

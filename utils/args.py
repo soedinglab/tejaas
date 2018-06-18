@@ -88,6 +88,7 @@ class Args():
             self.logger.info('Method: {:s}'.format(args.method))
             if self.rr:
                 self.logger.info('Null Model: {:s}'.format(args.nullmodel))
+                self.logger.info('Sigma_beta: {:g}'.format(args.sigmabeta))
 
 
     def parse_args(self):
