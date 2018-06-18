@@ -1,27 +1,27 @@
 #!/bin/bash
 
-INPUTDIR="${HOME}/gwas-eQTL/gtex_data"
-OUTDIRBASE="${HOME}/trans-eQTL/gtex_nopeer_lmcorr_rr_perm_sb005"
+INPUTDIR="${HOME}/tejaas_mkl"
+OUTDIRBASE="${HOME}/tejaas_mkl/output"
 JOBSUBDIR="${OUTDIRBASE}/jobsub"
-TEJAAS="${HOME}/trans-eQTL/codebase/tejaas/bin/tejaas"
+TEJAAS="${HOME}/tejaas_mkl/bin/tejaas"
 CWD=`pwd`
 
-MAX_NSNP=100000
-SNPCUT=0.05
-GENCUT=0.05
+MAX_NSNP=80000
+SNPCUT=0.001
+GENCUT=0.001
 
 if [ ! -d ${JOBSUBDIR} ]; then
     mkdir -p ${JOBSUBDIR}
 fi
     
-for j in {1..2}; do
+for j in {1..22}; do
 
     echo "Submitting jobs for Chromosome ${j}."
 
-    GTFILE="${INPUTDIR}/dosages/GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr${j}.gz"
+    GTFILE="${INPUTDIR}/geno/GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr${j}.gz"
     GXFILE="${INPUTDIR}/GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt"
-    DONORS="${INPUTDIR}/dosages/donor_ids.fam"
-    GENINF="${INPUTDIR}/gencode.v19.annotation.gtf"
+    DONORS="${INPUTDIR}/donor_ids.fam"
+    GENINF="${INPUTDIR}/gencode.v19.annotation.gtf.gz"
     JOBPREFIX="chr${j}"
 
     ## do not change below
@@ -62,7 +62,7 @@ for j in {1..2}; do
 
         # Submit the job
         cd ${JOBSUBDIR}
-        #bsub < ${JOBNAME}.bsub
+        bsub < ${JOBNAME}.bsub
         cd ${CWD}
     done
 

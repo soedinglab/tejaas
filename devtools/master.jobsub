@@ -7,7 +7,6 @@
 #BSUB -e _JOBNAME.e%J
 #BSUB -a intelmpi
 #BSUB -R "span[hosts=1]"
-#BSUB -R scratch
 
 module load intel/compiler/64/2017/17.0.2
 module load intel/mkl/64/2017/2.174
@@ -23,7 +22,7 @@ SNPTHRES=_SNPCUT_
 GENTHRES=_GENCUT_
 GENEINFO=_GENINF_
 
-source activate py35
+#source activate py35
 mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
                         --fam          ${SAMPFILE} \
                         --gx           ${GXPRFILE} \

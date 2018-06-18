@@ -5,7 +5,7 @@ import logging
 import time
 import itertools
 import sqlite3
-
+import os
 import mpi4py
 mpi4py.rc.initialize = False
 mpi4py.rc.finalize = False
@@ -122,17 +122,17 @@ if rank == 0:
 
         dbwriter = outhandler.DBwriter(selected_snps, geneinfo, jpa.pvals[indices,:], args.outprefix + ".db" )
         dbwriter.write()
-        rrwriter = outhandler.rrOutWriter(selected_snps, [rr.pvals[i] for i in indices], [rr.scores[i] for i in indices], [rr.null_mu[i] for i in indices], [rr.null_sigma[i] for i in indices], args.outprefix + "_rr.txt")
+        rrwriter = outhandler.rrOutWriter(snpinfo, rr.pvals, rr.scores, rr.null_mu, rr.null_sigma, args.outprefix + "_rr.txt")
         rrwriter.write()
         db      = sqlite3.connect(args.outprefix + ".db")
         cursor  = db.cursor()
-        cursor.execute('''SELECT geneid, snpid, pval FROM pvals WHERE pval < (?) ORDER BY geneid''',(args.pgenecut,))  #argument for the ? mark needs to be given in tuple
+        cursor.execute('''SELECT DISTINCT geneid, snpid, pval FROM pvals WHERE pval < (?) ORDER BY geneid''',(args.pgenecut,))  #argument for the ? mark needs to be given in tuple
         f = open(args.outprefix + "_gene_snp_list.txt", "w")
         f.write("geneid\tsnpid\tpval\n")
         for row in cursor:
             f.write(row[0] + "\t" + row[1] + "\t" + str(row[2]) + "\n")
         f.close()
-
+        os.remove("args.outprefix" + ".db")
 if rank == 0: write_time = time.time()
 
 if rank == 0:
