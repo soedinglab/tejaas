@@ -4,6 +4,7 @@ from scipy import special
 from scipy import stats
 import ctypes
 from utils import mpihelper
+from utils.logs import MyLogger
 
 class JPA:
 
@@ -19,6 +20,7 @@ class JPA:
         self.mpi = False
         if self.ncore > 1:
             self.mpi = True
+        self.logger = MyLogger(__name__)
 
 
     @property
@@ -43,7 +45,7 @@ class JPA:
         return res
 
 
-    def clinreg(self, geno, expr):
+    def clinreg(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
         clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
         cfstat = clib.fit
@@ -64,14 +66,16 @@ class JPA:
         ngene = expr.shape[0]
         fstat = np.zeros(nsnps * ngene)
         success = cfstat(x, y, nsnps, ngene, nsample, fstat)
-        pvals = 1 - stats.f.cdf(fstat, 1, nsample-2)
-        pvals = pvals.reshape(nsnps, ngene)
+        res = 1 - stats.f.cdf(fstat, 1, nsample-2)
+        res = res.reshape(nsnps, ngene)
+        pvals = np.zeros((nrow, ngene), dtype=np.float64)
+        pvals[:nsnps, :] = res
         return pvals
 
 
-    def slavejob(self, geno, expr, jpa = True):
+    def slavejob(self, geno, expr, nmax, jpa = True):
         nsnps = geno.shape[0]
-        pvals = self.clinreg(geno, expr)
+        pvals = self.clinreg(geno, expr, nmax)
         if jpa:
             qscores = np.array([self.jpascore(pvals[i,:]) for i in range(nsnps)])
         else:
@@ -85,31 +89,50 @@ class JPA:
             # create a list of genotypes for sending to your slaves
             geno = mpihelper.split_genotype(self.gt, self.ncore)
             expr = self.gx
+            nmax = max([x.shape[0] for x in geno])
         else:
             geno = None
             expr = None
+            nmax = None
         
         slave_geno = self.comm.scatter(geno, root = 0)
         expr = self.comm.bcast(expr, root = 0)
+        nmax = self.comm.bcast(nmax, root = 0)
         self.comm.barrier()
         
         # ==================================
         # Data sent. Now do the calculations
         # ==================================
         if self.qcalc:
-            pvals, qscores = self.slavejob(slave_geno, expr, jpa = True)
+            pvals, qscores = self.slavejob(slave_geno, expr, nmax, jpa = True)
         else:
-            pvals, qscores = self.slavejob(slave_geno, expr, jpa = False)
+            pvals, qscores = self.slavejob(slave_geno, expr, nmax, jpa = False)
 
-        pvals   = self.comm.gather(pvals,   root = 0)
-        qscores = self.comm.gather(qscores, root = 0)
-        
+
+        recvbuf = None
         if self.rank == 0:
-            self._pvals = np.vstack(pvals)
+            self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(str(x.shape[0]) for x in geno)) #print (recvbuf.shape)
+            recvbuf = np.zeros([self.ncore, nmax, self.gx.shape[0]], dtype=np.float64)
+
+        self.comm.Gather(pvals, recvbuf, root=0)
+        qscores = self.comm.gather(qscores, root = 0)
+
+        if self.rank == 0:
+            self.logger.debug("Shape of gathered pvals array: " + " x ".join(str(x) for x in recvbuf.shape)) #print (recvbuf.shape)
+            self.logger.debug("Number of SNPs: {:d}, Sum of rows in pvals array: {:d}".format(self.gt.shape[0], recvbuf.shape[0] * recvbuf.shape[1]))
+            #self.logger.debug("Last 10 unused pvals are " + " ".join("{:g}".format(x) for x in recvbuf[0][-1, -10:]))
+            self._pvals = np.zeros((self.gt.shape[0], self.gx.shape[0]))
+            offset = 0
+            for i in range(self.ncore):
+                nsnp = geno[i].shape[0]
+                self._pvals[offset:offset+nsnp, :] = recvbuf[i][:nsnp, :]
+                self.logger.debug("Adding next {:d} SNPs from index {:d}".format(nsnp, offset))
+                offset += nsnp
             self._qscores = np.concatenate(qscores)
         else:
             assert qscores is None
-            assert pvals   is None
+            assert recvbuf is None
+
         return
             
 
@@ -117,7 +140,7 @@ class JPA:
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.slavejob(self.gt, self.gx)
+            pvals, qscores = self.slavejob(self.gt, self.gx, self.gt.shape[0])
             self._pvals = pvals
             self._qscores = qscores
         return
