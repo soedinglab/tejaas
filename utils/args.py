@@ -60,6 +60,7 @@ class Args():
         self.oxf_file  = args.oxf_filename
         self.fam_file  = args.fam_filename
         self.gx_file   = args.gx_filename
+        self.gtf_file  = args.gtf_filename
         self.method    = args.method
         self.outprefix = args.outprefix
         if args.incsnps is not None:
@@ -118,6 +119,12 @@ class Args():
                             dest='gx_filename',
                             metavar='FILE',
                             help='input expression file')
+
+        parser.add_argument('--gtf',
+                            type=str,
+                            dest='gtf_filename',
+                            metavar='FILE',
+                            help='input gtf file')
     
         parser.add_argument('--method',
                             default='jpa-rr',
