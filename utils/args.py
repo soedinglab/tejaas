@@ -206,6 +206,7 @@ class Args():
 
         parser.add_argument('--simparams',
                             nargs='*',
+                            default=['0.1', '0.9', '1000', '0', '0.005'],
                             dest='simparams',
                             help='fmin, fmax, nsnp')
 

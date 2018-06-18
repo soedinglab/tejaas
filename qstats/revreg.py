@@ -75,15 +75,15 @@ class RevReg:
             # this is the master
             # create a list of index for sending to your slaves
             nmax = int(self.gt.shape[0] / self.ncore)
-            offset = 0
+            offset = nmax # this is a hack to keep things in order. Node 0 must get 0:nmax
             for i in range(1, self.ncore):
                 start = offset
-                end   = offset + nmax
+                end   = offset + nmax if i < (self.ncore - 1) else self.gt.shape[0]
                 self.comm.send(start, dest = i, tag = 10 + 3 * i - 2)
                 self.comm.send(end,   dest = i, tag = 10 + 3 * i - 1)
                 offset += nmax
-            start = offset
-            end = self.gt.shape[0]
+            start = 0
+            end = nmax
         else:
             start = self.comm.recv(source = 0, tag = 10 + self.rank * 3 - 2)
             end   = self.comm.recv(source = 0, tag = 10 + self.rank * 3 - 1)

@@ -1,5 +1,4 @@
 import numpy as np
-from iotools import readrpkm
 from iotools import simulate
 from iotools import readgtf
 from iotools.readOxford import ReadOxford
@@ -103,40 +102,31 @@ class Data():
 
     def simulate(self):
 
-        maketest = self.args.maketest
-
         # Gene Expression
         rpkm = ReadRPKM(self.args.gx_file, "gtex")
         expr = rpkm.expression
         gene_names = rpkm.gene_names
-        self._geneinfo = list()
+        geneinfo = list()
         for gene in gene_names:
-            this_gene = GeneInfo(name = "x-gene",
-                                 ensembl_id = gene,
-                                 chrom = 1,
-                                 start = 1,
-                                 end   = 2)
-            self._geneinfo.append(this_gene)
+            this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
+            geneinfo.append(this_gene)
 
         # Genotype
-        if self.args.simparams is not None:
-            fmin = float(self.args.simparams[0])
-            fmax = float(self.args.simparams[1])
-            nsnp = int(self.args.simparams[2])
-            snpinfo, gtnorm, gtcent = simulate.single_snp_permute(nsnp = nsnp, nsample = expr.shape[1], fmin = fmin, maketest = maketest)
-            #snpinfo, gtnorm, gtcent = simulate.multiple_snp_permute(nsnp = nsnp, nsample = expr.shape[1], fmin = fmin, fmax = fmax)
-        else:
-            snpinfo, gtnorm, gtcent = simulate.single_snp_permute(maketest = maketest)
-
-        self._expr = expr
-        self._geneinfo = list()
-        for i in range(expr.shape[0]):
-            this_gene = GeneInfo(name = "x-gene",
-                                 ensembl_id = str(i),
-                                 chrom = 1,
-                                 start = 1,
-                                 end   = 2)
-            self._geneinfo.append(this_gene)
+        fmin = float(self.args.simparams[0])
+        fmax = float(self.args.simparams[1])
+        nsnp = int(self.args.simparams[2])
+        ntrans = int(self.args.simparams[3])
+        cfrac = float(self.args.simparams[4])
+        maketest = self.args.maketest
+        snpinfo, gtnorm, gtcent = simulate.permuted_dosage(expr, nsnp = nsnp, fmin = fmin, fmax = fmax, maketest = maketest)
+       
+        # Trans-eQTL
+        if ntrans > 0:
+            newgx, hg2, nc = simulate.expression(gtnorm[-ntrans:, :], expr, cfrac = cfrac)
+            expr = newgx
+        
         self._gtnorm = gtnorm
         self._gtcent = gtcent
         self._snpinfo = snpinfo
+        self._expr = expr
+        self._geneinfo = geneinfo

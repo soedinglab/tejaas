@@ -85,11 +85,8 @@ if args.rr:
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
     rr.compute()
-    
-    
-    
-    
 
+    
 # Output handling only from master node // move it to module
 if rank == 0: 
     if args.outprefix is None:
