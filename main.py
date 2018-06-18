@@ -18,7 +18,8 @@ from utils import iotools
 from qstats.jpa import JPA
 from qstats.revreg import RevReg
 from iotools.data import Data
-import iotools.outhandler as outhandler
+from iotools.outhandler import Outhandler
+
 # ==================================================
 # Start MPI calculation
 # =================================================
@@ -89,50 +90,17 @@ if args.rr:
     
     
 
-if rank == 0: rr_time = time.time()
-
 # Output handling only from master node // move it to module
-if rank == 0:
-    pvals = jpa.pvals
-    logger.debug('Pval matrix size: {:d} x {:d}'.format(pvals.shape[0], pvals.shape[1]))
-    if(args.outprefix is None):
-        logger.debug('No outfile prefix given, using default names\n')
-        args.outprefix = "out"
-    #args.outprefix = args.outprefix + 
-    #dbwriter = outhandler.DBwriter(snpinfo, geneinfo, jpa.pvals, args.outprefix + ".db" )
-    #dbwriter.write()
-
+if rank == 0: 
+    rr_time = time.time()
+    if rank == 0:
+        ohandle = Outhandler(args, snpinfo, geneinfo)
     if args.jpa:
-        jpascores = jpa.scores
-        jpawriter = outhandler.jpaOutWriter(snpinfo, jpascores, args.outprefix + "_jpa.txt")
-        jpawriter.write()
-        logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
+        ohandle.write_jpa_out(jpa)
     if args.rr:
-        rrscores = rr.scores
-        indices  = rr.pvals < args.psnpcut
-        indices  = list(itertools.compress(range(len(indices)), indices))
-        mu = np.mean(rr.null_mu)
-        sigma = np.mean(rr.null_sigma)
-        logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
-        logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
-        
-        selected_snps = [snpinfo[i] for i in indices]
-        #selected_pvals = list(itertools.compress(indices, g))        
-        
+        ohandle.write_rr_out(jpa, rr)
+        ohandle.write()
 
-        dbwriter = outhandler.DBwriter(selected_snps, geneinfo, jpa.pvals[indices,:], args.outprefix + ".db" )
-        dbwriter.write()
-        rrwriter = outhandler.rrOutWriter(snpinfo, rr.pvals, rr.scores, rr.null_mu, rr.null_sigma, args.outprefix + "_rr.txt")
-        rrwriter.write()
-        db      = sqlite3.connect(args.outprefix + ".db")
-        cursor  = db.cursor()
-        cursor.execute('''SELECT DISTINCT geneid, snpid, pval FROM pvals WHERE pval < (?) ORDER BY geneid''',(args.pgenecut,))  #argument for the ? mark needs to be given in tuple
-        f = open(args.outprefix + "_gene_snp_list.txt", "w")
-        f.write("geneid\tsnpid\tpval\n")
-        for row in cursor:
-            f.write(row[0] + "\t" + row[1] + "\t" + str(row[2]) + "\n")
-        f.close()
-        os.remove("args.outprefix" + ".db")
 if rank == 0: write_time = time.time()
 
 if rank == 0:
