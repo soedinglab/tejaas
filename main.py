@@ -3,6 +3,8 @@
 import numpy as np
 import logging
 import time
+import itertools
+import sqlite3
 
 import mpi4py
 mpi4py.rc.initialize = False
@@ -74,6 +76,7 @@ if args.jpa and args.rr:
     comm.barrier()
     geno = geno[qselect, :]
 
+
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
     if args.nullmodel == 'maf':
@@ -81,6 +84,10 @@ if args.rr:
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
     rr.compute()
+    
+    
+    
+    
 
 if rank == 0: rr_time = time.time()
 
@@ -91,8 +98,9 @@ if rank == 0:
     if(args.outprefix is None):
         logger.debug('No outfile prefix given, using default names\n')
         args.outprefix = "out"
-    dbwriter = outhandler.DBwriter(snpinfo, geneinfo, jpa.pvals, args.outprefix + ".db" )
-    dbwriter.write()
+    #args.outprefix = args.outprefix + 
+    #dbwriter = outhandler.DBwriter(snpinfo, geneinfo, jpa.pvals, args.outprefix + ".db" )
+    #dbwriter.write()
 
     if args.jpa:
         jpascores = jpa.scores
@@ -101,13 +109,29 @@ if rank == 0:
         logger.debug('Scores size: {:d}'.format(jpascores.shape[0]))
     if args.rr:
         rrscores = rr.scores
-        pvals = rr.pvals
+        indices  = rr.pvals < args.psnpcut
+        indices  = list(itertools.compress(range(len(indices)), indices))
         mu = np.mean(rr.null_mu)
         sigma = np.mean(rr.null_sigma)
         logger.debug('Mean of RR scores: {:g}, Mean of RR null: {:g}\n'.format(np.mean(rrscores), mu))
         logger.debug('Variance of RR scores: {:g}, Variance of RR null: {:g}\n'.format(np.std(rrscores), sigma))
-        rrwriter = outhandler.rrOutWriter(snpinfo, rr.pvals, rr.scores, rr.null_mu, rr.null_sigma, args.outprefix + "_rr.txt")
+        
+        selected_snps = [snpinfo[i] for i in indices]
+        #selected_pvals = list(itertools.compress(indices, g))        
+        
+
+        dbwriter = outhandler.DBwriter(selected_snps, geneinfo, jpa.pvals[indices,:], args.outprefix + ".db" )
+        dbwriter.write()
+        rrwriter = outhandler.rrOutWriter(selected_snps, [rr.pvals[i] for i in indices], [rr.scores[i] for i in indices], [rr.null_mu[i] for i in indices], [rr.null_sigma[i] for i in indices], args.outprefix + "_rr.txt")
         rrwriter.write()
+        db      = sqlite3.connect(args.outprefix + ".db")
+        cursor  = db.cursor()
+        cursor.execute('''SELECT geneid, snpid, pval FROM pvals WHERE pval < (?) ORDER BY geneid''',(args.pgenecut,))  #argument for the ? mark needs to be given in tuple
+        f = open(args.outprefix + "_gene_snp_list.txt", "w")
+        f.write("geneid\tsnpid\tpval\n")
+        for row in cursor:
+            f.write(row[0] + "\t" + row[1] + "\t" + str(row[2]) + "\n")
+        f.close()
 
 if rank == 0: write_time = time.time()
 
