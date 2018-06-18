@@ -92,6 +92,8 @@ if args.rr:
 
 # Output handling only from master node // move it to module
 if rank == 0: 
+    if args.outprefix is None:
+        args.outprefix = "out"    
     rr_time = time.time()
     if rank == 0:
         ohandle = Outhandler(args, snpinfo, geneinfo)
@@ -99,7 +101,6 @@ if rank == 0:
         ohandle.write_jpa_out(jpa)
     if args.rr:
         ohandle.write_rr_out(jpa, rr)
-        ohandle.write()
 
 if rank == 0: write_time = time.time()
 
