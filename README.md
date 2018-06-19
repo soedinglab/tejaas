@@ -31,5 +31,5 @@ You can find examples of getting started here:
 For quick check (dev only):
 ```
 EXPRFILE="/scratch/sbanerj/trans-eQTL/data/GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt"
-mpirun -n 8 bin/tejaas --gx ${EXPRFILE} --simulate --test --method rr --null maf
+mpirun -n 8 bin/tejaas --gx ${EXPRFILE} --simulate --method rr --null perm --simparams 0.1 0.1 1000 0 0.001 --test
 ```
