@@ -89,7 +89,8 @@ class JPA:
             # create a list of genotypes for sending to your slaves
             geno = mpihelper.split_genotype(self.gt, self.ncore)
             expr = self.gx
-            nmax = max([x.shape[0] for x in geno])
+            snp_per_node = [x.shape[0] for x in geno]
+            nmax = max(snp_per_node)
         else:
             geno = None
             expr = None
@@ -111,7 +112,7 @@ class JPA:
 
         recvbuf = None
         if self.rank == 0:
-            self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(str(x.shape[0]) for x in geno)) #print (recvbuf.shape)
+            self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(["{:d}".format(x) for x in snp_per_node])) #print (recvbuf.shape)
             recvbuf = np.zeros([self.ncore, nmax, self.gx.shape[0]], dtype=np.float64)
 
         self.comm.Gather(pvals, recvbuf, root=0)
@@ -124,7 +125,7 @@ class JPA:
             self._pvals = np.zeros((self.gt.shape[0], self.gx.shape[0]))
             offset = 0
             for i in range(self.ncore):
-                nsnp = geno[i].shape[0]
+                nsnp = snp_per_node[0]
                 self._pvals[offset:offset+nsnp, :] = recvbuf[i][:nsnp, :]
                 self.logger.debug("Adding next {:d} SNPs from index {:d}".format(nsnp, offset))
                 offset += nsnp
