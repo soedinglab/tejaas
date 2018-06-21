@@ -47,6 +47,7 @@ if rank == 0:
     else:
         data.load()
     gtcent = data.geno_centered
+    logger.debug("Retained {:d} SNPs in {:d} samples".format(gtcent.shape[0], gtcent.shape[1]))
     gtnorm = data.geno_normed
     snpinfo = data.snpinfo
     expr = data.expression
@@ -83,6 +84,9 @@ if args.rr:
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
     elif args.nullmodel == 'perm':
+        #if rank == 0:
+            #print(gtcent)
+            #print(expr)
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
     rr.compute()
 
