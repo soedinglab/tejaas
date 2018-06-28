@@ -58,13 +58,15 @@ class Args():
 
         self.vcf_file  = args.vcf_filename
         self.oxf_file  = args.oxf_filename
+        self.oxf_columns = args.oxf_columns
+        self.isdosage  = args.isdosage
         self.fam_file  = args.fam_filename
         self.gx_file   = args.gx_filename
         self.gtf_file  = args.gtf_filename
         self.method    = args.method
         self.outprefix = args.outprefix
         if args.incsnps is not None:
-            self.startsnp = args.incsnps[0]
+            self.startsnp = args.incsnps[0] - 1
             self.endsnp   = args.incsnps[1]
         else:
             self.startsnp  = 0
@@ -108,7 +110,19 @@ class Args():
                             dest='oxf_filename',
                             metavar='FILE',
                             help='input Oxford file')
-    
+        parser.add_argument('--oxf-columns',
+                            type=int,
+                            default=6,
+                            dest='oxf_columns',
+                            metavar='FILE',
+                            help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
+        parser.add_argument('--isdosage',
+                            type=bool,
+                            default=True,
+                            dest='isdosage',
+                            metavar='FILE',
+                            help='Read dosages or genotype freqs')
+
         parser.add_argument('--fam',
                             type=str,
                             dest='fam_filename',

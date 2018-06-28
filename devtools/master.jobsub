@@ -33,4 +33,4 @@ mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
                         --include-SNPs ${INCSTRNG} \
                         --psnpthres    ${SNPTHRES} \
                         --pgenethres   ${GENTHRES} \
-                        --prior-sigma  0.005
+                        --prior-sigma  0.0006
