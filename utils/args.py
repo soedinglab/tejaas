@@ -116,12 +116,16 @@ class Args():
                             dest='oxf_columns',
                             metavar='FILE',
                             help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
-        parser.add_argument('--isdosage',
-                            type=bool,
-                            default=True,
+        parser.add_argument('--dosage',
                             dest='isdosage',
-                            metavar='FILE',
-                            help='Read dosages or genotype freqs')
+                            action='store_true',
+                            help='Read dosages')
+        parser.add_argument('--no-dosage',
+                            dest='isdosage',
+                            action='store_false',
+                            help= 'genotype freqs')
+
+        parser.set_defaults(isdosage=True)
 
         parser.add_argument('--fam',
                             type=str,

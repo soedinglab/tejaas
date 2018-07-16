@@ -98,7 +98,7 @@ class Data():
             # Skip low MAF
             if not (maf >= 0.10 and maf <=0.90):
                 continue
-            if(self.HWEcheck(dosage[i]) < 0.05):
+            if(self.HWEcheck(dosage[i]) < 0.000001):
                 continue
             newsnps.append(snp)
             bins = [0.66, 1.33]
@@ -114,7 +114,7 @@ class Data():
     def load(self):
         # Read Oxford File
         if self.args.oxf_file:
-            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=False, data_columns=5) #should be self.args.isdosage and self.args.oxf_columns
+            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage, data_columns=self.args.oxf_columns) #should be self.args.isdosage and self.args.oxf_columns
             dosage = oxf.dosage
             gt_donor_ids = oxf.samplenames
             snpinfo = oxf.snpinfo
@@ -135,9 +135,11 @@ class Data():
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
         ### for GTEx ###
-        # gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
+        if(self.args.isdosage):
+            gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
         ### for Cardiogenics ###
-        gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
+        else:
+            gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
         self._geneinfo = gene_info
 
         # reorder donors gt and expr
