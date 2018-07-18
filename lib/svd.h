@@ -18,8 +18,32 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+
+#ifdef MKL_ILP64
 #include <mkl.h>
 #include <mkl_lapacke.h>
+#else
+#include <lapacke.h>
+/*
+	static int
+LAPACKE_dgesvd ( int matrix_layout, char jobu, char jobvt,
+			int m, int n, double* a,
+			int lda, double* s, double* u, int ldu,
+			double* vt, int ldvt, double* superb ) {
+	int info = 0;
+	int lwork = -1;
+	double* work = NULL;
+	double work_query;
+
+	// Query optimal work array
+	dgesvd_(&jobu, &jobvt, &m, &n, a, &lda, s, u, &ldu, vt, &ldvt, work, &lwork, &info);
+	lwork = (int) work_query;
+
+	
+	return info;
+}
+*/
+#endif
 
 /* 
  * ===  FUNCTION  ======================================================================
@@ -41,10 +65,10 @@ dsvd ( double *A, int m, int n, double *S, double *U )
 	
 	double * superb;
 	double * VT;
-	superb = (double *) mkl_malloc( (unsigned long) (k - 1) * sizeof( double ), 64 );
+	superb = (double *) calloc( (unsigned long) (k - 1) * sizeof( double ), 64 );
 	if (superb == NULL) {success = false; goto cleanup_superb;}
 
-	VT     = (double *) mkl_malloc( (unsigned long) k * n   * sizeof( double ), 64 );
+	VT     = (double *) calloc( (unsigned long) k * n   * sizeof( double ), 64 );
 	if (VT == NULL) {success = false; goto cleanup_VT;}
 	
 	info = LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'S', 'S', m, n, A, n, S, U, k, VT, n, superb);
@@ -59,9 +83,9 @@ dsvd ( double *A, int m, int n, double *S, double *U )
 
 cleanup:
 cleanup_VT:
-	mkl_free(VT);
+	free(VT);
 cleanup_superb:
-	mkl_free(superb);
+	free(superb);
 
 	return success;
 }		/* -----  end of function dsvd  ----- */

@@ -103,13 +103,21 @@ class Data():
     def simulate(self):
 
         # Gene Expression
-        rpkm = ReadRPKM(self.args.gx_file, "gtex")
-        expr = rpkm.expression
-        gene_names = rpkm.gene_names
-        geneinfo = list()
-        for gene in gene_names:
-            this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
-            geneinfo.append(this_gene)
+        if not self.args.gxsim:
+            rpkm = ReadRPKM(self.args.gx_file, "gtex")
+            expr = rpkm.expression
+            gene_names = rpkm.gene_names
+            geneinfo = list()
+            for gene in gene_names:
+                this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
+                geneinfo.append(this_gene)
+        else:
+            expr = np.random.normal(0, 1, 2189 * 338).reshape(2189, 338)
+            gene_names = ['ENS{:07d}'.format(i+1) for i in range(2189)]
+            geneinfo = list()
+            for gene in gene_names:
+                this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
+                geneinfo.append(this_gene)
 
         # Genotype
         fmin = float(self.args.simparams[0])

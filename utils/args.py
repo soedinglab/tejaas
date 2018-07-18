@@ -84,11 +84,17 @@ class Args():
         self.simparams = args.simparams
         self.maketest  = args.maketest
 
+        self.gxsim = False
+        if self.gx_file is None:
+            self.gxsim = True
+
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
             if self.rr:
                 self.logger.info('Null Model: {:s}'.format(args.nullmodel))
                 self.logger.info('Sigma_beta: {:g}'.format(args.sigmabeta))
+            if self.gxsim:
+                self.logger.info('NO GENE EXPRESSION FILE PROVIDED. SIMULATING GENE EXPRESSION.')
 
 
     def parse_args(self):

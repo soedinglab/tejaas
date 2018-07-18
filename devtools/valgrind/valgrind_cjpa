@@ -1,0 +1,14 @@
+#!/bin/bash
+
+if [ -f linear_regression.h ]; then
+    rm -rf linear_regression.h
+fi
+
+if [ -f cjpa ]; then
+    rm -rf cjpa
+fi
+
+cp ../../lib/linear_regression.c linear_regression.h
+gcc -lm -g cjpa.c -o cjpa
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./cjpa
+rm -rf linear_regression.h cjpa

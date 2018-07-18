@@ -1,0 +1,37 @@
+#!/bin/bash
+
+function check_and_remove_file() {
+    if [ -f $1 ]; then
+        rm -rf $1
+    fi
+}
+
+function check_and_remove_dir() {
+    if [ -d $1 ]; then
+        rm -rf $1
+    fi
+}
+
+check_and_remove_file reverse_regression.h
+check_and_remove_file svd.h
+check_and_remove_file utils.h
+check_and_remove_file crevreg
+check_and_remove_dir  dcdflib
+
+cp ../../lib/reverse_regression.c reverse_regression.h
+cp ../../lib/svd.h svd.h
+cp ../../lib/utils.h utils.h
+cp -r ../../lib/dcdflib ./
+
+if [ "$1" == "BLAS" ]; then
+    echo "Compiling with BLAS ..."
+    gcc crevreg.c -lm -lblas -llapacke -o crevreg
+fi
+
+if [ "$1" == "MKL" ]; then
+    echo "Compiling with MKL ..."
+    gcc -L${MKLROOT}/lib/intel64 -Wl,--no-as-needed -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core -lpthread -lm -ldl -std=c99 -DMKL_ILP64 -m64 -I${MKLROOT}/include crevreg.c -o crevreg
+fi
+
+valgrind --leak-check=full --show-leak-kinds=all --track-origins=yes --verbose ./crevreg
+rm -rf reverse_regression.h svd.h utils.h dcdflib crevreg

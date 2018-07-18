@@ -41,13 +41,11 @@ min ( int i, int j )
 	bool
 transpose ( double *A, int m, int n, double *AT )
 {
-	/*
 	for (int i = 0; i < m; i++) {
 		for (int j = 0; j < n; j++) {
 			AT[ j * m + i ] = A[ i * n + j ];
 		}
-	}
-	*/
-	mkl_domatcopy ('R', 'T', m, n, 1.0, A, n, AT, m);
+	}	
+	// mkl_domatcopy ('R', 'T', m, n, 1.0, A, n, AT, m);
 	return true;
 }		/* -----  end of function transpose  ----- */

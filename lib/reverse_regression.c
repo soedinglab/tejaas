@@ -19,11 +19,31 @@
  */
 
 #include <stdbool.h>                            /* datatype bool */
-#include <mkl.h>                                /* mkl_malloc */
 #include <math.h>                               /* sqrt */
 
 #include "svd.h"
 #include "utils.h"                              /* min, transpose */
+
+#ifdef MKL_ILP64
+#include <mkl.h>
+void my_cdfnorm( double* X, double* P) {
+	vdCdfNorm( 1, X, P );
+}
+#else
+#include <cblas.h>
+#include <cblas_f77.h>
+#include "dcdflib/src/dcdflib.c"
+#include "dcdflib/src/ipmpar.c"
+void my_cdfnorm( double* X, double* P) {
+	int which[1] = {1}; // iwhich = 1 : Calculate P and Q from X,MEAN and SD
+	double Q[1] = {0.0};
+	double MEAN[1] = {0.0};
+	double SD[1] = {1.0};
+	int status[1] = {0};
+	double bound[1];
+    cdfnor(which, P, Q, X, MEAN, SD, status, bound);
+}
+#endif
 
 #define MAF_NULL 1
 #define PERM_NULL 2
@@ -57,28 +77,28 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	success = false;
 	nS = min(ngene, nsample);
 
-	double *GXT = (double *) mkl_malloc( (unsigned long) ngene   * nsample * sizeof( double ), 64 );
+	double *GXT = (double *) calloc( (unsigned long) ngene   * nsample * sizeof( double ), 64 );
 	if (GXT == NULL) {success = false; goto cleanup_GXT;}
 
-	double *S   = (double *) mkl_malloc(                           nS      * sizeof( double ), 64 );
+	double *S   = (double *) calloc(                           nS      * sizeof( double ), 64 );
 	if (S == NULL) {success = false; goto cleanup_S;}
 
-	double *U   = (double *) mkl_malloc( (unsigned long) nsample * nS      * sizeof( double ), 64 );
+	double *U   = (double *) calloc( (unsigned long) nsample * nS      * sizeof( double ), 64 );
 	if (U == NULL) {success = false; goto cleanup_U;}
 
-	double *SM  = (double *) mkl_malloc( (unsigned long) nsnp    * nS      * sizeof( double ), 64 );
+	double *SM  = (double *) calloc( (unsigned long) nsnp    * nS      * sizeof( double ), 64 );
 	if (SM == NULL) {success = false; goto cleanup_SM;}
 
-	double *W   = (double *) mkl_malloc( (unsigned long) nS      * nS      * sizeof( double ), 64 );
+	double *W   = (double *) calloc( (unsigned long) nS      * nS      * sizeof( double ), 64 );
 	if (W == NULL) {success = false; goto cleanup_W;}
 
-	double *X   = (double *) mkl_malloc(                           nsample * sizeof( double ), 64 );
+	double *X   = (double *) calloc(                           nsample * sizeof( double ), 64 );
 	if (X == NULL) {success = false; goto cleanup_X;}
 
-	double *SX2 = (double *) mkl_malloc(                           nsnp    * sizeof( double ), 64 );
+	double *SX2 = (double *) calloc(                           nsnp    * sizeof( double ), 64 );
 	if (SX2 == NULL) {success = false; goto cleanup_SX2;}
 
-	double *D1  = (double *) mkl_malloc(                           nS      * sizeof( double ), 64 );
+	double *D1  = (double *) calloc(                           nS      * sizeof( double ), 64 );
 	if (D1 == NULL) {success = false; goto cleanup_D1;}
 
 	
@@ -125,21 +145,21 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 cleanup:
 cleanup_D1:
-	mkl_free(D1);
+	free(D1);
 cleanup_SX2:
-	mkl_free(SX2);
+	free(SX2);
 cleanup_X:
-	mkl_free(X);
+	free(X);
 cleanup_W:
-	mkl_free(W);
+	free(W);
 cleanup_SM:
-	mkl_free(SM);
+	free(SM);
 cleanup_U:
-	mkl_free(U);
+	free(U);
 cleanup_S:
-	mkl_free(S);
+	free(S);
 cleanup_GXT:
-	mkl_free(GXT);
+	free(GXT);
 
 	return success;
 
@@ -213,10 +233,10 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 	double q11 = 0, q2 = 0, q31 = 0, q4 = 0, q22 = 0, q211 = 0, v31 = 0, v22 = 0, v211 = 0, v1111 = 0;
 
-	double *q31_left  = (double *) mkl_malloc( N * sizeof( double ), 64 );
+	double *q31_left  = (double *) calloc( N * sizeof( double ), 64 );
 	if (q31_left == NULL)  {success = false; goto cleanup_q31_left;}
 
-	double *q31_right = (double *) mkl_malloc( N * sizeof( double ), 64 );
+	double *q31_right = (double *) calloc( N * sizeof( double ), 64 );
 	if (q31_right == NULL) {success = false; goto cleanup_q31_right;}
 
 	double gtmu2  = second_moment(X, nsample);
@@ -260,9 +280,9 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 cleanup:
 cleanup_q31_right:
-	mkl_free(q31_right);
+	free(q31_right);
 cleanup_q31_left:
-	mkl_free(q31_left);
+	free(q31_left);
 
 	return pval;
 }		/* -----  end of function permuted_null  ----- */
@@ -300,24 +320,24 @@ cdf_norm ( double x, double mu, double sigma )
 
 	double pval;
 
-	double *QS = (double *) mkl_malloc( 1 * sizeof( double ), 64);
+	double *QS = (double *) calloc( 1 * sizeof( double ), 64);
 	if (QS == NULL) {goto cleanup_QS;}
 
-	double *P = (double *) mkl_malloc( 1 * sizeof( double ), 64);
+	double *P = (double *) calloc( 1 * sizeof( double ), 64);
 	if (P == NULL) {goto cleanup_P;}
 
 	QS[0] = (x - mu) / sigma;
 	P[0] = 0;
-	vdCdfNorm( 1, QS, P );
+	my_cdfnorm( QS, P );
 	pval = 1 - P[0];
 	
 	//printf ("M: %g, S: %g, Q: %g, p: %g\n", mu, sigma, x, pval);
 
 cleanup:
 cleanup_QS:
-	mkl_free(QS);
+	free(QS);
 cleanup_P:
-	mkl_free(P);
+	free(P);
 
 	return pval;
 }		/* -----  end of function qnull_maf  ----- */
