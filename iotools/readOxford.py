@@ -117,8 +117,11 @@ class ReadOxford:
                     snp_dosage = np.array([float(x) for x in mline[self._data_columns:]])
 
                     maf = sum(snp_dosage) / 2 / len(snp_dosage)
-
-                    this_snp = SnpInfo(    chrom      = int(mline[0]),
+                    try:                               ######## change to get the chrom numberfrom gtfile
+                       chrom = int(mline[0])
+                    except:
+                       chrom = -1
+                    this_snp = SnpInfo(    chrom      = chrom,
                                            bp_pos     = int(mline[2]),
                                            varid      = mline[1].decode("utf-8"),
                                            ref_allele = mline[3].decode("utf-8"),
@@ -158,8 +161,11 @@ class ReadOxford:
                     snp_dosage = 2*gt_freqs[indsBB] + gt_freqs[indsAB] # [AA, AB, BB] := [0, 1, 2]
 
                     maf = sum(snp_dosage) / 2 / len(snp_dosage)
-
-                    this_snp = SnpInfo(    chrom      = int(mline[0]),
+                    try:                                             #######change this to read chrom number from gt file name
+                       chrom = int(mline[0])
+                    except:
+                       chrom = -1
+                    this_snp = SnpInfo(    chrom      = chrom,
                                            bp_pos     = int(mline[2]),
                                            varid      = mline[1].decode("utf-8"),
                                            ref_allele = mline[3].decode("utf-8"),

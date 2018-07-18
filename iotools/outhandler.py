@@ -9,7 +9,7 @@ class Outhandler:
     def write_jpa_out(self,jpa):
         f = open(self.args.outprefix + "_jpa.txt", "w")
         f.write("snpid\tjpascore")
-        outlist = ["\n" + self.snpinfo[i].varid + "\t" + str(jpa.scores[i])for i in range(len(self.sninfo))]
+        outlist = ["\n" + self.snpinfo[i].varid + "\t" + str(jpa.scores[i])for i in range(len(self.snpinfo))]
         f.writelines(outlist)
         f.close()
     def write_rr_out(self,jpa, rr):

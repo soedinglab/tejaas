@@ -47,11 +47,22 @@ if rank == 0:
     else:
         data.load()
     gtcent = data.geno_centered
+    logger.debug("Retained {:d} SNPs in {:d} samples".format(gtcent.shape[0], gtcent.shape[1]))
     gtnorm = data.geno_normed
     snpinfo = data.snpinfo
     expr = data.expression
     geneinfo = data.geneinfo
     maf = np.array([x.maf for x in snpinfo])
+    
+    #gtcent_shuf = np.zeros_like(gtcent)
+    #gtnorm_shuf = np.zeros_like(gtnorm)
+    #for i in range(gtcent.shape[0]):
+    #    idx = np.random.permutation(np.arange(0,gtcent.shape[1]))
+    #    np.random.shuffle(idx)
+    #    gtcent_shuf[i,:] = gtcent[i,idx]
+    #    gtnorm_shuf[i,:] = gtnorm[i,idx]    
+    #gtcent = gtcent_shuf
+    #gtnotm = gtnorm_shuf		################## SHUFFLED GENO ASSIGNMENT ALERT ! #######################
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
@@ -75,7 +86,7 @@ if args.jpa and args.rr:
 
     qselect = comm.bcast(select, root = 0)
     comm.barrier()
-    geno = geno[qselect, :]
+    #geno = geno[qselect, :]
 
 
 if args.rr:
@@ -83,6 +94,9 @@ if args.rr:
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
     elif args.nullmodel == 'perm':
+        #if rank == 0:
+            #print(gtcent)
+            #print(expr)
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
     rr.compute()
 

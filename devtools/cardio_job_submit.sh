@@ -1,12 +1,12 @@
 #!/bin/bash
 
-INPUTDIR="${HOME}/tejaas_mkl"
-OUTDIRBASE="${HOME}/tejaas_mkl/output"
+INPUTDIR="${HOME}/cardiogenics"
+OUTDIRBASE="${HOME}/cardio_output"
 JOBSUBDIR="${OUTDIRBASE}/jobsub"
 TEJAAS="${HOME}/tejaas_mkl/bin/tejaas"
 CWD=`pwd`
 
-MAX_NSNP=20000
+MAX_NSNP=10000
 SNPCUT=0.001
 GENCUT=0.001
 
@@ -18,9 +18,9 @@ for j in {1..22}; do
 
     echo "Submitting jobs for Chromosome ${j}."
 
-    GTFILE="${INPUTDIR}/geno/GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr${j}.gz"
-    GXFILE="${INPUTDIR}/GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt"
-    DONORS="${INPUTDIR}/donor_ids.fam"
+    GTFILE="${INPUTDIR}/genotypes/CG_${j}.imputed.gz" #GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr${j}.gz"
+    GXFILE="${INPUTDIR}/Cardiogenics_Monocyte-Expr_covariates_lmcorrected_noPEER.txt"
+    DONORS="${INPUTDIR}/genotypes/CG.sample"
     GENINF="${INPUTDIR}/gencode.v19.annotation.gtf.gz"
     JOBPREFIX="chr${j}"
 

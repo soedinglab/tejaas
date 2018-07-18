@@ -1,26 +1,13 @@
 #!/bin/sh
-#BSUB -J _JOBNAME
-#BSUB -q mpi
-#BSUB -W 48:00
-#BSUB -n 8
-#BSUB -o _JOBNAME.o%J
-#BSUB -e _JOBNAME.e%J
-#BSUB -a intelmpi
-#BSUB -R "span[hosts=1]"
-
-module load intel/compiler/64/2017/17.0.2
-module load intel/mkl/64/2017/2.174
-module load openmpi/intel/64/1.10.7
-
-GENOFILE=_GTFILE_
-SAMPFILE=_FAMFIL_
-GXPRFILE=_GXFILE_
-OUTPRFIX=_PREFIX_
-INCSTRNG=_ST_END_
-RUN_PATH=_TEJAAS_
-SNPTHRES=_SNPCUT_
-GENTHRES=_GENCUT_
-GENEINFO=_GENINF_
+GENOFILE=${HOME}/gwas-eQTL/gtex_data/dosages/GTEx_450Indiv_genot_imput_info04_maf01_HWEp1E6_dbSNP135IDs_donorIDs_dosage_chr1.gz
+SAMPFILE=${HOME}/gwas-eQTL/gtex_data/dosages/donor_ids.fam
+GXPRFILE=/scratch/sbanerj/trans-eQTL/data/GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt
+OUTPRFIX=trial
+INCSTRNG=0:20000
+RUN_PATH=${HOME}/trans-eQTL/codebase/tejaas/bin/tejaas
+SNPTHRES=0.001
+GENTHRES=0.001
+GENEINFO=${HOME}/gwas-eQTL/gtex_data/gencode.v19.annotation.gtf.gz
 
 #source activate py35
 mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
@@ -33,4 +20,4 @@ mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
                         --include-SNPs ${INCSTRNG} \
                         --psnpthres    ${SNPTHRES} \
                         --pgenethres   ${GENTHRES} \
-                        --prior-sigma  0.0006
+                        --prior-sigma  0.005
