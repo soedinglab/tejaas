@@ -16,7 +16,8 @@ and all genes as exaplanatory variables.
 
 TEJAAS is written in python and C. To run TEJAAS, you will need
 - python version 3.4 or higher,
-- Python packages for scientific computing NumPy and SciPy
+- Python packages for scientific computing [NumPy](http://www.numpy.org/) and [SciPy](https://www.scipy.org/)
+- Python package for Trie data structure, [Pygtrie](https://pypi.org/project/pygtrie/)
 - C compiler
 - Intel MKL library
 - any flavor of MPI linked to the Intel MKL library (e.g. OpenMPI)
