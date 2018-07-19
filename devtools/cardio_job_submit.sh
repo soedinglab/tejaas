@@ -6,9 +6,9 @@ JOBSUBDIR="${OUTDIRBASE}/jobsub"
 TEJAAS="${HOME}/tejaas_mkl/bin/tejaas"
 CWD=`pwd`
 
-MAX_NSNP=10000
+MAX_NSNP=20000
 SNPCUT=0.001
-GENCUT=0.001
+GENCUT=0.05
 
 if [ ! -d ${JOBSUBDIR} ]; then
     mkdir -p ${JOBSUBDIR}
@@ -58,7 +58,7 @@ for j in {1..22}; do
              s|_ST_END_|${INCSNP}|g;
              s|_TEJAAS_|${TEJAAS}|g;
              s|_SNPCUT_|${SNPCUT}|g;
-             s|_GENCUT_|${GENCUT}|g;" master.jobsub > ${JOBSUBDIR}/${JOBNAME}.bsub
+             s|_GENCUT_|${GENCUT}|g;" cardio_master.jobsub > ${JOBSUBDIR}/${JOBNAME}.bsub
 
         # Submit the job
         cd ${JOBSUBDIR}

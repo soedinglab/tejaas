@@ -27,10 +27,13 @@ mpirun -n 8 ${RUN_PATH} --oxf          ${GENOFILE} \
                         --fam          ${SAMPFILE} \
                         --gx           ${GXPRFILE} \
                         --gtf          ${GENEINFO} \
-                        --method       rr \
+                        --method       jpa-rr \
                         --null         perm \
                         --outprefix    ${OUTPRFIX} \
                         --include-SNPs ${INCSTRNG} \
                         --psnpthres    ${SNPTHRES} \
                         --pgenethres   ${GENTHRES} \
-                        --prior-sigma  0.0006
+                        --prior-sigma  0.0006	\
+			--isdosage	\
+                        --oxf-columns  6
+

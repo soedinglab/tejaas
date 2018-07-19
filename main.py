@@ -19,6 +19,7 @@ from qstats.jpa import JPA
 from qstats.revreg import RevReg
 from iotools.data import Data
 from iotools.outhandler import Outhandler
+import pygtrie
 
 # ==================================================
 # Start MPI calculation
@@ -52,8 +53,24 @@ if rank == 0:
     snpinfo = data.snpinfo
     expr = data.expression
     geneinfo = data.geneinfo
-    maf = np.array([x.maf for x in snpinfo])
     
+    maf = [x.maf for x in snpinfo]
+    if(args.nullmodel == "maf"):
+        snp_maf_pairs = open(args.maf_file, "r").read().split("\n")
+        t = pygtrie.StringTrie()
+        for line in snp_maf_pairs:
+            l = line.split("\t")
+            try:
+                t[l[0]] = float(l[1])
+            except:
+                pass
+        for i in range(len(maf)):
+            try:
+                maf[i] = t[snpinfo[i].varid] 
+            except:
+                pass
+        del t
+    maf = np.array(maf)
     #gtcent_shuf = np.zeros_like(gtcent)
     #gtnorm_shuf = np.zeros_like(gtnorm)
     #for i in range(gtcent.shape[0]):
