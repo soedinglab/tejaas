@@ -1,16 +1,19 @@
 import numpy as np
+import scipy.stats as ss
+
 from iotools import simulate
 from iotools import readgtf
 from iotools.readOxford import ReadOxford
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo
-import scipy.stats as ss
+from utils.logs import MyLogger
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
 class Data():
 
     def __init__(self, args):
+        self.logger = MyLogger(__name__)
         self.args = args
         self._gtcent = None
         self._gtnorm = None
@@ -52,6 +55,7 @@ class Data():
         exprmask = np.array([expr_donors.index(x) for x in common_donors])
         return vcfmask, exprmask
 
+
     def select_genes(self, info, names):
         ''' Select genes which would be analyzed. 
             Make sure the indices are not mixed up
@@ -61,25 +65,31 @@ class Data():
         genes = [x for x in info if x.ensembl_id in common]
         indices = [names.index(x.ensembl_id) for x in genes]
         return genes, np.array(indices)
+
     
-    def HWEcheck(self, genotype):
-        bins = [0.66, 1.33]
-        digitised_geno = np.digitize(genotype, bins).tolist()
-        observed_freqs = np.array([0]*3)
-        observed_freqs[0] = digitised_geno.count(0)
-        observed_freqs[1] = digitised_geno.count(1)
-        observed_freqs[2] = digitised_geno.count(2)
-        n = sum(observed_freqs)
-        p_A = (2*observed_freqs[0] + observed_freqs[1])/(2*n)
-        p_a = (2*observed_freqs[2] + observed_freqs[1])/(2*n)
-        X2 = n * ((4*observed_freqs[0]*observed_freqs[2] - observed_freqs[1]**2)/((2*observed_freqs[0] + observed_freqs[1])*(2*observed_freqs[2] + observed_freqs[1])))**2
+    def HWEcheck(self, x):
+        gt = x.tolist()
+        f = np.array([0] * 3)
+        f[0] = gt.count(0)
+        f[1] = gt.count(1)
+        f[2] = gt.count(2)
+        n = sum(f)
+        #p_A = (2 * f[0] + f[1]) / (2 * n)
+        #p_a = (2 * f[2] + f[1]) / (2 * n)
+        X2 = n * ( (4 * f[0] * f[2] - f[1] ** 2) / ((2 * f[0] + f[1]) * (2 * f[2] + f[1])) )**2
         pval = 1 - ss.chi2.cdf(X2, 1)
-        return pval 
-    
+        return pval
+
+
     def filter_snps(self, snpinfo, dosage):
         # Predixcan style filtering of snps
         newsnps = list()
         newdosage = list()
+        npoly = 0
+        nambi = 0
+        nunkn = 0
+        nlowf = 0
+        nhwep = 0
         for i, snp in enumerate(snpinfo):
             pos = snp.bp_pos
             refAllele = snp.ref_allele
@@ -88,22 +98,36 @@ class Data():
             maf = snp.maf
             # Skip non-single letter polymorphisms
             if len(refAllele) > 1 or len(effectAllele) > 1:
+                npoly += 1
                 continue
             # Skip ambiguous strands
             if SNP_COMPLEMENT[refAllele] == effectAllele:
+                nambi += 1
                 continue
             # Skip unknown RSIDs
             if rsid == '.':
+                nunkn += 1
                 continue
             # Skip low MAF
             if not (maf >= 0.10 and maf <=0.90):
+                nlowf += 1
                 continue
-            if(self.HWEcheck(dosage[i]) < 0.000001):
+            # Convert to integers 0, 1 or 2
+            bins = [0.66, 1.33]
+            intdosage = np.digitize(dosage[i], bins)
+            # Remove SNPs out of HWE
+            if(self.HWEcheck(intdosage) < 0.000001):
+                nhwep += 1
                 continue
             newsnps.append(snp)
-            bins = [0.66, 1.33]
-            newdosage.append(np.digitize(dosage[i], bins))
+            newdosage.append(intdosage)
+        self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
+        self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
+        self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
+        self.logger.debug("Removed {:d} SNPs because of low MAF < 0.10".format(nlowf))
+        self.logger.debug("Removed {:d} SNPs because of deviation from HWE".format(nhwep))
         return newsnps, np.array(newdosage)
+
 
     def normalize_and_center_dosage(self, dosage):
         f = [snp.maf for snp in self._snpinfo]
@@ -111,10 +135,11 @@ class Data():
         self._gtnorm = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
         self._gtcent = dosage - np.mean(dosage, axis = 1).reshape(-1, 1)
 
+
     def load(self):
         # Read Oxford File
         if self.args.oxf_file:
-            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage, data_columns=self.args.oxf_columns) #should be self.args.isdosage and self.args.oxf_columns
+            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage)
             dosage = oxf.dosage
             gt_donor_ids = oxf.samplenames
             snpinfo = oxf.snpinfo
@@ -127,6 +152,7 @@ class Data():
             snpinfo = oxf.snpinfo
 
         snpinfo_filtered, dosage_filtered = self.filter_snps(snpinfo, dosage)
+        self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
         self._snpinfo = snpinfo_filtered
 
         # Gene Expression
@@ -134,6 +160,7 @@ class Data():
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
+        self.logger.debug("Completed reading expression levels of {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         ### for GTEx ###
         if(self.args.isdosage):
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
@@ -143,6 +170,7 @@ class Data():
         self._geneinfo = gene_info
 
         # reorder donors gt and expr
+        self.logger.debug("Selecting common samples of genotype and gene expression")
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)
 
@@ -154,7 +182,7 @@ class Data():
         #self._gtnorm = self._gtnorm[:, vcfmask]
         #self._gtcent = self._gtcent[:, vcfmask]
 
-        print ("Completed data reading")
+        self.logger.info("Completed data reading")
 
     def simulate(self):
 

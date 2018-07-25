@@ -116,16 +116,19 @@ class Args():
                             dest='oxf_filename',
                             metavar='FILE',
                             help='input Oxford file')
+
         parser.add_argument('--oxf-columns',
                             type=int,
                             default=6,
                             dest='oxf_columns',
                             metavar='FILE',
                             help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
+
         parser.add_argument('--dosage',
                             dest='isdosage',
                             action='store_true',
                             help='Read dosages')
+
         parser.add_argument('--no-dosage',
                             dest='isdosage',
                             action='store_false',
@@ -191,7 +194,7 @@ class Args():
                             metavar='STR',
                             help='which null model to use: perm / maf. The later requires separate maf file')
     
-        parser.add_argument('--maf',
+        parser.add_argument('--maf-file',
                             type=str,
                             dest='maf_filename',
                             metavar='FILE',
