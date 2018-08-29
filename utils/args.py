@@ -216,7 +216,7 @@ class Args():
                             metavar='STR',
                             help='which null model to use: perm / maf. The later requires separate maf file')
     
-        parser.add_argument('--maf',
+        parser.add_argument('--maf-file',
                             type=str,
                             dest='maf_filename',
                             metavar='FILE',
