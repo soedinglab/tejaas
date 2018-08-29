@@ -20,6 +20,7 @@
 
 #include <stdbool.h>                            /* datatype bool */
 #include <math.h>                               /* sqrt */
+#include <time.h>
 
 #include "svd.h"
 #include "utils.h"                              /* min, transpose */
@@ -106,6 +107,9 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	success = transpose(GX, ngene, nsample, GXT);
 	if ( success == false ) goto cleanup;
 
+	clock_t start, end;
+	double cpu_time_used;
+	start = clock();
 	success = dsvd (GXT, nsample, ngene, S, U);
 	if ( success == false ) goto cleanup;
 
@@ -119,6 +123,10 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 		if ( success == false ) goto cleanup;
 		getWnullmaf ( W, SM, &muQmaf, &sig2Qmaf, &sumW2nn, nS, 0);
 	}
+
+	end = clock();
+	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("SVD calculation took %f seconds \n", cpu_time_used);
 
 	for ( int i = 0; i < nsnp; i++ ) {
 

@@ -56,15 +56,18 @@ class Args():
             args = self.parse_args()
         args = self.comm.bcast(args, root = 0)
 
-        self.vcf_file  = args.vcf_filename
-        self.oxf_file  = args.oxf_filename
+        self.vcf_file    = args.vcf_filename
+        self.oxf_file    = args.oxf_filename
         self.oxf_columns = args.oxf_columns
-        self.isdosage  = args.isdosage
-        self.fam_file  = args.fam_filename
-        self.gx_file   = args.gx_filename
-        self.gtf_file  = args.gtf_filename
-        self.method    = args.method
-        self.outprefix = args.outprefix
+        self.isdosage    = args.isdosage
+        self.forcetrans  = args.forcetrans
+        self.forcecis    = args.forcecis
+        self.chrom       = int(args.chrom)
+        self.fam_file    = args.fam_filename
+        self.gx_file     = args.gx_filename
+        self.gtf_file    = args.gtf_filename
+        self.method      = args.method
+        self.outprefix   = args.outprefix
         if args.incsnps is not None:
             self.startsnp = args.incsnps[0] - 1
             self.endsnp   = args.incsnps[1]
@@ -116,22 +119,44 @@ class Args():
                             dest='oxf_filename',
                             metavar='FILE',
                             help='input Oxford file')
+
         parser.add_argument('--oxf-columns',
                             type=int,
                             default=6,
                             dest='oxf_columns',
                             metavar='FILE',
                             help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
+
         parser.add_argument('--dosage',
                             dest='isdosage',
                             action='store_true',
                             help='Read dosages')
+
         parser.add_argument('--no-dosage',
                             dest='isdosage',
                             action='store_false',
                             help= 'genotype freqs')
 
         parser.set_defaults(isdosage=True)
+
+        parser.add_argument('--force-trans',
+                            dest='forcetrans',
+                            action='store_true',
+                            help='Select only trans SNPs-Genes pairs not in the same Chromosome')
+
+        parser.set_defaults(forcetrans=False)
+
+        parser.add_argument('--force-cis',
+                            dest='forcecis',
+                            action='store_true',
+                            help='Select only cis SNPs-Genes pairs in the same Chromosome')
+
+        parser.set_defaults(forcecis=False)
+
+        parser.add_argument('--chrom',
+                            dest='chrom',
+                            metavar='NUMBER',
+                            help="Chromosome number being processed")
 
         parser.add_argument('--fam',
                             type=str,

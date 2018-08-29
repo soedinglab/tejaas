@@ -5,6 +5,8 @@ from iotools.readOxford import ReadOxford
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo
 import scipy.stats as ss
+from collections import defaultdict
+
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
@@ -23,16 +25,25 @@ class Data():
     def geno_centered(self):
         return self._gtcent
 
-
     @property
     def geno_normed(self):
         return self._gtnorm
-
 
     @property
     def snpinfo(self):
         return self._snpinfo
 
+    @property
+    def geneinfo(self):
+        return self._geneinfo
+
+    @property
+    def snpinfo_dict(self):
+        return self._snpinfo_dict
+
+    @property
+    def geneinfo_dict(self):
+        return self._geneinfo_dict
 
     @property
     def geneinfo(self):
@@ -129,25 +140,61 @@ class Data():
         snpinfo_filtered, dosage_filtered = self.filter_snps(snpinfo, dosage)
         self._snpinfo = snpinfo_filtered
 
+        snp_dict = dict()
+        for s in self._snpinfo:
+            snp_dict[s.varid] = s.bp_pos
+        self._snpinfo_dict = snp_dict
+
         # Gene Expression
         rpkm = ReadRPKM(self.args.gx_file, "gtex")
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
+        
         ### for GTEx ###
         if(self.args.isdosage):
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
         ### for Cardiogenics ###
         else:
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
-        self._geneinfo = gene_info
+
+        gene_dict = defaultdict(lambda:False)
+        for g in gene_info:
+            # gene_dict[g.ensembl_id] = [g.chrom, g.start, g.end]
+            gene_dict[g.ensembl_id] = g
+        self._geneinfo_dict = gene_dict
 
         # reorder donors gt and expr
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)
 
         self._expr = expression[:, exprmask][indices, :]
+        self._gene_names = [gene_names[i] for i in indices]
         dosage_filtered_selected = dosage_filtered[:, vcfmask]
+
+        # get only gene_info for previously selected genes
+        self._geneinfo = [gene_dict[g] for g in self._gene_names]
+
+        if self.args.forcetrans:
+            print("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
+            ix2keep = list()
+            for i, g in enumerate(self._geneinfo):
+                if g.chrom != self.args.chrom:
+                    ix2keep.append(i)
+            ix2keep = np.array(ix2keep)
+            self._expr = self._expr[ix2keep, :]
+            self._gene_names = [self._gene_names[i] for i in ix2keep]
+            self._geneinfo = [self._geneinfo[i] for i in ix2keep]
+        elif self.args.forcecis:
+            print("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
+            ix2keep = list()
+            for i, g in enumerate(self._geneinfo):
+                if g.chrom == self.args.chrom:
+                    ix2keep.append(i)
+            ix2keep = np.array(ix2keep)
+            self._expr = self._expr[ix2keep, :]
+            self._gene_names = [self._gene_names[i] for i in ix2keep]
+            self._geneinfo = [self._geneinfo[i] for i in ix2keep]
 
         self.normalize_and_center_dosage(dosage_filtered_selected)
 

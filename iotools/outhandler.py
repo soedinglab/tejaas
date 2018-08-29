@@ -1,11 +1,14 @@
 import numpy as np
 import itertools
+import os
 
 class Outhandler:
     def __init__(self, args, snpinfo, geneinfo):
         self.snpinfo  = snpinfo
         self.geneinfo = geneinfo
         self.args = args
+        if not os.path.exists(os.path.dirname(self.args.outprefix)):
+            os.makedirs(os.path.dirname(self.args.outprefix))
     def write_jpa_out(self,jpa):
         f = open(self.args.outprefix + "_jpa.txt", "w")
         f.write("snpid\tjpascore")
