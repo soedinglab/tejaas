@@ -12,6 +12,20 @@ from utils.logs import MyLogger
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
+from functools import wraps
+import time
+
+def timeit(f):
+    @wraps(f)
+    def wrap(*args, **kw):
+        ts = time.time()
+        result = f(*args, **kw)
+        te = time.time()
+        print('{:s} took: {:.6f} seconds'.format(f.__name__, te-ts))
+        return result
+    return wrap
+
+
 class Data():
 
     def __init__(self, args):
@@ -41,21 +55,90 @@ class Data():
         return self._geneinfo
 
     @property
-    def snpinfo_dict(self):
-        return self._snpinfo_dict
+    def snp_cismasks(self):
+        return self._snps_masks_lists
 
     @property
-    def geneinfo_dict(self):
-        return self._geneinfo_dict
+    def cismasks(self):
+        return self._compressed_masks
 
-    @property
-    def geneinfo(self):
-        return self._geneinfo
-
+    # @property
+    # def geneinfo_dict(self):
+    #     return self._geneinfo_dict
 
     @property
     def expression(self):
         return self._expr
+
+    @timeit
+    def get_cismasks(self, snpinfo, gene_info, chrom):
+        # gene_info MUST be sorted as in the gene expression matrix
+        # chrom   = snpinfo[0].chrom
+        window  = 1e6
+
+        chr_genes = list()
+        chr_ix_genes = list()
+        for i,g in enumerate(gene_info):
+            if g.chrom == chrom:
+                chr_genes.append(g)
+                chr_ix_genes.append(i)
+        chr_ix_genes = np.array(chr_ix_genes)
+        
+        cis_masks = list()
+        prev_start = 0
+
+        for s in snpinfo:
+            #here starts for each snp
+            pos     = s.bp_pos
+            w_start = pos - window
+            w_end   = pos + window
+            cis_genes_ix = list()
+            for i, g in enumerate(chr_genes[prev_start:]):
+                if g.start >= w_start and g.start <= w_end:
+                    # cis_genes_ix.append([prev_start + i, g])
+                    cis_genes_ix.append(prev_start + i)
+                elif g.end >= w_start and g.end <= w_end:
+                    # cis_genes_ix.append([prev_start + i, g])
+                    cis_genes_ix.append(prev_start + i)
+                if g.start > w_end:
+                    break
+            cis_genes_ix = np.array(cis_genes_ix)
+            if len(cis_genes_ix) > 0:
+                gx_matrix_ix = chr_ix_genes[cis_genes_ix]
+                if len(gx_matrix_ix) != len(cis_genes_ix):
+                    raise
+                if prev_start != cis_genes_ix[0]:
+                    prev_start = cis_genes_ix[0]
+            else:
+                # print(pos, "empty cis")
+                gx_matrix_ix = np.array([])
+            cis_masks.append(gx_matrix_ix)
+        return cis_masks
+
+    @timeit
+    def compress_cis_masks(self, cis_masks):
+        snps_masks_lists = [] # contains lists of snp indices for each mask.
+                              # i.e snps_masks_lists[0] is a list with all the snps 
+                              # that have the same mask: compressed_masks[0]
+        compressed_snps  = [] # temp list that will be used to build snps_masks_lists     
+        compressed_masks = [] # contains all unique masks
+
+        prev_mask = cis_masks[0]
+        compressed_snps.append(0)
+        for i in range(1, len(cis_masks)):
+            # if masks are the same, add the snp index
+            if (len(cis_masks[i]) == len(prev_mask)) and all(cis_masks[i] == prev_mask):
+                compressed_snps.append(i)
+            else:
+                compressed_masks.append(cis_masks[i])
+                prev_mask = cis_masks[i]
+                snps_masks_lists.append(compressed_snps)
+                compressed_snps = []
+                compressed_snps.append(i)
+        # add the last set of snps for the final mask
+        snps_masks_lists.append(compressed_snps)
+        compressed_masks.append(cis_masks[-1])
+        return snps_masks_lists, compressed_masks
 
 
     def select_donors(self, vcf_donors, expr_donors):
@@ -166,11 +249,6 @@ class Data():
         self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
         self._snpinfo = snpinfo_filtered
 
-        snp_dict = dict()
-        for s in self._snpinfo:
-            snp_dict[s.varid] = s.bp_pos
-        self._snpinfo_dict = snp_dict
-
         # Gene Expression
         rpkm = ReadRPKM(self.args.gx_file, "gtex")
         expression = rpkm.expression
@@ -186,43 +264,45 @@ class Data():
         else:
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
 
-        gene_dict = defaultdict(lambda:False)
-        for g in gene_info:
-            # gene_dict[g.ensembl_id] = [g.chrom, g.start, g.end]
-            gene_dict[g.ensembl_id] = g
-        self._geneinfo_dict = gene_dict
-
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)
 
         self._expr = expression[:, exprmask][indices, :]
-        self._gene_names = [gene_names[i] for i in indices]
+        self._geneinfo = genes
         dosage_filtered_selected = dosage_filtered[:, vcfmask]
 
-        # get only gene_info for previously selected genes
-        self._geneinfo = [gene_dict[g] for g in self._gene_names]
+        ### Until here, all filters have been applied and geneinfo and snpinfo reflect current data ###
+
+        # This holds!! geneinfo is ordered by chrom and start position
+        # just for testing
+        # for i, g in enumerate(genes):
+        #     if g.start > genes[i+1].start and g.chrom == genes[i+1].chrom:
+        #         print(g, genes[i+1])
+
+        if self.args.cismasking:
+            self.logger.debug("Generate cis-masks for GX matrix for each SNP")
+            cis_masks = self.get_cismasks(self._snpinfo, self._geneinfo, self.args.chrom)
+            self._snps_masks_lists, self._compressed_masks = self.compress_cis_masks(cis_masks)
 
         if self.args.forcetrans:
-            print("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
+            self.logger.debug("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
             ix2keep = list()
             for i, g in enumerate(self._geneinfo):
                 if g.chrom != self.args.chrom:
                     ix2keep.append(i)
             ix2keep = np.array(ix2keep)
             self._expr = self._expr[ix2keep, :]
-            self._gene_names = [self._gene_names[i] for i in ix2keep]
             self._geneinfo = [self._geneinfo[i] for i in ix2keep]
         elif self.args.forcecis:
-            print("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
+            self.logger.debug("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
             ix2keep = list()
             for i, g in enumerate(self._geneinfo):
                 if g.chrom == self.args.chrom:
                     ix2keep.append(i)
             ix2keep = np.array(ix2keep)
             self._expr = self._expr[ix2keep, :]
-            self._gene_names = [self._gene_names[i] for i in ix2keep]
             self._geneinfo = [self._geneinfo[i] for i in ix2keep]
 
         self.normalize_and_center_dosage(dosage_filtered_selected)

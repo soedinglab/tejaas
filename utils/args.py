@@ -42,7 +42,6 @@ def null_strings(mstring):
         raise argparse.ArgumentTypeError('Please specify a correct null model')
     return mstring
 
-
 class Args():
 
     def __init__(self, comm, rank):
@@ -58,10 +57,14 @@ class Args():
 
         self.vcf_file    = args.vcf_filename
         self.oxf_file    = args.oxf_filename
-        self.oxf_columns = args.oxf_columns
+        # self.oxf_columns = args.oxf_columns
         self.isdosage    = args.isdosage
         self.forcetrans  = args.forcetrans
         self.forcecis    = args.forcecis
+        self.cismasking  = args.cismasking
+
+        self.masking(self.forcecis, self.forcetrans, self.cismasking)
+
         self.chrom       = int(args.chrom)
         self.fam_file    = args.fam_filename
         self.gx_file     = args.gx_filename
@@ -101,6 +104,9 @@ class Args():
             if self.gxsim:
                 self.logger.info('NO GENE EXPRESSION FILE PROVIDED. SIMULATING GENE EXPRESSION.')
 
+    def masking(self, forcecis, forcetrans, cismasking):
+        if sum([forcecis, forcetrans, cismasking]) > 1:
+            raise argparse.ArgumentTypeError("Mutually exclusive options, choose one of --force-trans, --force-cis, --cismask")
 
     def parse_args(self):
 
@@ -120,12 +126,12 @@ class Args():
                             metavar='FILE',
                             help='input Oxford file')
 
-        parser.add_argument('--oxf-columns',
-                            type=int,
-                            default=6,
-                            dest='oxf_columns',
-                            metavar='FILE',
-                            help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
+        # parser.add_argument('--oxf-columns',
+        #                     type=int,
+        #                     default=6,
+        #                     dest='oxf_columns',
+        #                     metavar='FILE',
+        #                     help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
 
         parser.add_argument('--dosage',
                             dest='isdosage',
@@ -152,6 +158,13 @@ class Args():
                             help='Select only cis SNPs-Genes pairs in the same Chromosome')
 
         parser.set_defaults(forcecis=False)
+
+        parser.add_argument('--cismask',
+                            dest='cismasking',
+                            action='store_true',
+                            help='Generate cismasks for the expression matrix for each SNP')
+
+        parser.set_defaults(cismasking=False)
 
         parser.add_argument('--chrom',
                             dest='chrom',

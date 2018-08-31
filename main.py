@@ -14,7 +14,7 @@ from utils.args import Args
 from utils.logs import MyLogger
 from utils import project
 from qstats.jpa import JPA
-from qstats.revreg import RevReg
+from qstats.revreg_cis import RevReg
 from iotools.data import Data
 from iotools.outhandler import Outhandler
 from iotools import readmaf
@@ -33,6 +33,8 @@ if rank == 0: start_time = time.time()
 
 args = Args(comm, rank)
 logger = MyLogger(__name__)
+
+logger.debug("NCORE: {:d}".format(ncore))
 
 gtcent = None
 gtnorm = None
@@ -73,8 +75,9 @@ comm.barrier()
 
 if rank == 0: read_time = time.time()
 
-jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
-jpa.compute()
+logger.debug("Skipping JPA")
+# jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
+# jpa.compute()
 
 if rank == 0: jpa_time = time.time()
 
@@ -89,30 +92,56 @@ if args.jpa and args.rr:
     comm.barrier()
     #geno = geno[qselect, :]
 
-
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
-    if args.nullmodel == 'maf':
-        rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
-    elif args.nullmodel == 'perm':
-        #if rank == 0:
-            #print(gtcent)
-            #print(expr)
-        rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
-    rr.compute()
+    if args.cismasking:
+        logger.debug("Cismasking enabled")
+        if args.nullmodel == 'perm':
+            if rank == 0:
+                snps_masks = data.snp_cismasks
+                cismasks   = data.cismasks
+            else:
+                snps_masks = []
+                cismasks   = []
 
+            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks)
+            rr.compute()
+
+            ## Old working version but too much overhead for cismasking
+            # for i in range(len(cismasks)):
+            #     gtcent_crop = gtcent[snps_masks_lists[i], :]
+            #     if len(cismasks[i]) > 0:
+            #         expr_crop   = np.delete(expr, cismasks[i], axis=0)
+            #     else:
+            #         expr_crop   = expr
+            #     rr = RevReg(gtcent_crop, expr_crop, sigbeta2, comm, rank, ncore, null = args.nullmodel)
+            #     rr.compute()
+            #     if rank == 0:
+            #         snpinfo_crop = [snpinfo[j] for j in snps_masks_lists[i]]
+            #         geneinfo_crop = [geneinfo[j] for j in cismasks[i]]
+            #         ohandle = Outhandler(args, snpinfo_crop, geneinfo_crop)
+            #         ohandle.append_rr_out(rr)
+
+    else:
+        if args.nullmodel == 'maf':
+            rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
+        elif args.nullmodel == 'perm':
+            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
+        rr.compute()
+
+if rank == 0: rr_time = time.time()
     
 # Output handling only from master node // move it to module
-if rank == 0: 
-    if args.outprefix is None:
-        args.outprefix = "out"    
-    rr_time = time.time()
-    if rank == 0:
-        ohandle = Outhandler(args, snpinfo, geneinfo)
-    if args.jpa:
-        ohandle.write_jpa_out(jpa)
-    if args.rr:
-        ohandle.write_rr_out(jpa, rr)
+# if rank == 0: 
+#     if args.outprefix is None:
+#         args.outprefix = "out"    
+#     rr_time = time.time()
+#     if rank == 0:
+#         ohandle = Outhandler(args, snpinfo, geneinfo)
+#     if args.jpa:
+#         ohandle.write_jpa_out(jpa)
+#     if args.rr:
+#         ohandle.write_rr_out(jpa, rr)
 
 if rank == 0: write_time = time.time()
 

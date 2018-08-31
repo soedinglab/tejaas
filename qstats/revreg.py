@@ -85,8 +85,8 @@ class RevReg:
             start = 0
             end = nmax
         else:
-            start = self.comm.recv(source = 0, tag = 10 + self.rank * 3 - 2)
-            end   = self.comm.recv(source = 0, tag = 10 + self.rank * 3 - 1)
+            start = self.comm.recv(source = 0, tag = 10 + 3 * self.rank - 2)
+            end   = self.comm.recv(source = 0, tag = 10 + 3 * self.rank - 1)
 
         if self.rank == 0:
             geno = self.gt

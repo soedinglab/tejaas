@@ -28,7 +28,7 @@ class ReadOxford:
     # deafult is GTEx:
     #     - isdosage = True
 
-    def __init__(self, gtfile, samplefile, startsnp, endsnp, isdosage=True):
+    def __init__(self, gtfile, samplefile, startsnp=0, endsnp=1e15, isdosage=True):
         self.logger = MyLogger(__name__)
         self._gtfile = gtfile
         self._samplefile = samplefile

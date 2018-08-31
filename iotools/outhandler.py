@@ -8,7 +8,7 @@ class Outhandler:
         self.snpinfo  = snpinfo
         self.geneinfo = geneinfo
         self.args = args
-        
+
         if not os.path.exists(os.path.dirname(self.args.outprefix)):
             os.makedirs(os.path.dirname(self.args.outprefix))
 
@@ -35,6 +35,25 @@ class Outhandler:
                 gene_select = np.where(jpa.pvals[idx, :] < self.args.pgenecut)[0]
                 for gidx in gene_select:
                     f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, jpa.pvals[idx][gidx]) )
+
+    def append_rr_out(self, rr):
+        fname = self.args.outprefix + "_rr_cis.txt"
+        header = ""
+        if not os.path.exists(fname):
+            header = "{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P') 
+        with open(fname, "a") as f:
+            f.write(header)
+            for i, x in enumerate(self.snpinfo):
+                f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
+
+        # select = np.where(rr.pvals < self.args.psnpcut)[0]
+        # fname = self.args.outprefix + "_gene_snp_list.txt"
+        # with open(fname, "a") as f:
+        #     f.write("geneid\tsnpid\tpval\n")
+        #     for idx in select:
+        #         gene_select = np.where(jpa.pvals[idx, :] < self.args.pgenecut)[0]
+        #         for gidx in gene_select:
+        #             f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, jpa.pvals[idx][gidx]) )
 
         # #indices = rr.pvals < self.args.psnpcut
         # #indices = np.arange(len(rr.pvals))
