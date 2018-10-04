@@ -37,7 +37,7 @@ class Outhandler:
                     f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, jpa.pvals[idx][gidx]) )
 
     def append_rr_out(self, rr):
-        fname = self.args.outprefix + "_rr_cis.txt"
+        fname = self.args.outprefix + "_rr.txt"
         header = ""
         if not os.path.exists(fname):
             header = "{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P') 

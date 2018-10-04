@@ -14,7 +14,6 @@ from utils.args import Args
 from utils.logs import MyLogger
 from utils import project
 from qstats.jpa import JPA
-from qstats.revreg_cis import RevReg
 from iotools.data import Data
 from iotools.outhandler import Outhandler
 from iotools import readmaf
@@ -35,6 +34,12 @@ args = Args(comm, rank)
 logger = MyLogger(__name__)
 
 logger.debug("NCORE: {:d}".format(ncore))
+
+if args.cismasking:
+    from qstats.revreg_cis import RevReg
+else:
+    from qstats.revreg import RevReg
+
 
 gtcent = None
 gtnorm = None
@@ -75,9 +80,27 @@ comm.barrier()
 
 if rank == 0: read_time = time.time()
 
-logger.debug("Skipping JPA")
-# jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
-# jpa.compute()
+if rank == 0: logger.debug("Computing JPA")
+jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
+jpa.compute()
+
+# jpa.pvals.shape is [i_snps x g_genes]
+# apply cis masks and recalculate qscores
+if rank == 0:
+    if args.cismasking:
+        if args.jpa:
+            logger.debug("Recomputing JPA scores with cis-mask")
+            nsnps = jpa.pvals.shape[0]
+            newqscores = list()
+            for j, cismask in enumerate(data.cismasks):
+                for i in data.snp_cismasks[j]:
+                    pvals_crop = np.delete(jpa.pvals[i,:], cismask, axis = 0)
+                    # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(jpa.pvals[i,:])))
+                    newqscore = jpa.jpascore(pvals_crop)
+                    newqscores.append(newqscore)
+            jpa.scores = np.array(newqscores)
+            newqscores = np.array(newqscores)
+
 
 if rank == 0: jpa_time = time.time()
 
@@ -95,9 +118,9 @@ if args.jpa and args.rr:
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
     if args.cismasking:
-        logger.debug("Cismasking enabled")
         if args.nullmodel == 'perm':
             if rank == 0:
+                logger.debug("Cismasking enabled")
                 snps_masks = data.snp_cismasks
                 cismasks   = data.cismasks
             else:
@@ -130,18 +153,23 @@ if args.rr:
         rr.compute()
 
 if rank == 0: rr_time = time.time()
+
+# if rank == 0:
+#     ohandle = Outhandler(args, snpinfo, geneinfo)
+#     # ohandle.append_rr_out(rr)
+#     ohandle.write_rr_out(rr)
     
 # Output handling only from master node // move it to module
-# if rank == 0: 
-#     if args.outprefix is None:
-#         args.outprefix = "out"    
-#     rr_time = time.time()
-#     if rank == 0:
-#         ohandle = Outhandler(args, snpinfo, geneinfo)
-#     if args.jpa:
-#         ohandle.write_jpa_out(jpa)
-#     if args.rr:
-#         ohandle.write_rr_out(jpa, rr)
+if rank == 0: 
+    if args.outprefix is None:
+        args.outprefix = "out"    
+    rr_time = time.time()
+    if rank == 0:
+        ohandle = Outhandler(args, snpinfo, geneinfo)
+        if args.jpa:
+            ohandle.write_jpa_out(jpa)
+        if args.rr:
+            ohandle.write_rr_out(jpa, rr)
 
 if rank == 0: write_time = time.time()
 

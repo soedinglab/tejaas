@@ -32,6 +32,10 @@ class JPA:
     def scores(self):
         return self._qscores
 
+    @scores.setter
+    def scores(self, scores):
+        self._qscores = scores
+
 
     def jpascore(self, pvals):
         p = np.sort(pvals)
@@ -80,7 +84,8 @@ class JPA:
             qscores = np.array([self.jpascore(pvals[i,:]) for i in range(nsnps)])
         else:
             qscores = np.zeros(nsnps)
-        return pvals, qscores
+        # return pvals, qscores
+        return pvals.reshape(-1,), qscores
 
 
     def mpicompute(self):
@@ -90,15 +95,18 @@ class JPA:
             geno = mpihelper.split_genotype(self.gt, self.ncore)
             expr = self.gx
             snp_per_node = [x.shape[0] for x in geno]
-            nmax = max(snp_per_node)
+            print(snp_per_node)
+            # nmax = max(snp_per_node)
         else:
             geno = None
             expr = None
-            nmax = None
+            # nmax = None
+            snp_per_node = None
         
         slave_geno = self.comm.scatter(geno, root = 0)
         expr = self.comm.bcast(expr, root = 0)
-        nmax = self.comm.bcast(nmax, root = 0)
+        nmax = self.comm.scatter(snp_per_node, root = 0)
+        # nmax = self.comm.bcast(nmax, root = 0)
         self.comm.barrier()
         
         # ==================================
@@ -113,22 +121,36 @@ class JPA:
         recvbuf = None
         if self.rank == 0:
             self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(["{:d}".format(x) for x in snp_per_node])) #print (recvbuf.shape)
-            recvbuf = np.zeros([self.ncore, nmax, self.gx.shape[0]], dtype=np.float64)
+            # recvbuf = np.zeros([self.gt.shape[0], self.gx.shape[1]], dtype=np.float64)
+            columns = self.gx.shape[0]
+            flat_sizes = np.array([rows * columns for rows in snp_per_node])
+            total_rows = sum(np.array(snp_per_node))
+            recvbuf = np.zeros(sum(flat_sizes), dtype=np.float64)
+        else:
+            flat_sizes = None
 
-        self.comm.Gather(pvals, recvbuf, root=0)
+
+        # self.comm.Gather(pvals, recvbuf, root=0)
+        
+        self.comm.Gatherv(sendbuf=pvals, recvbuf=(recvbuf, flat_sizes), root = 0)
+
+        if self.rank == 0:
+            newarr = recvbuf.reshape(total_rows, columns)
+            self._pvals = newarr
+
         qscores = self.comm.gather(qscores, root = 0)
 
         if self.rank == 0:
-            self.logger.debug("Shape of gathered pvals array: " + " x ".join(str(x) for x in recvbuf.shape)) #print (recvbuf.shape)
-            self.logger.debug("Number of SNPs: {:d}, Sum of rows in pvals array: {:d}".format(self.gt.shape[0], recvbuf.shape[0] * recvbuf.shape[1]))
+            # self.logger.debug("Shape of gathered pvals array: " + " x ".join(str(x) for x in recvbuf.shape)) #print (recvbuf.shape)
+            # self.logger.debug("Number of SNPs: {:d}, Sum of rows in pvals array: {:d}".format(self.gt.shape[0], recvbuf.shape[0] * recvbuf.shape[1]))
             #self.logger.debug("Last 10 unused pvals are " + " ".join("{:g}".format(x) for x in recvbuf[0][-1, -10:]))
-            self._pvals = np.zeros((self.gt.shape[0], self.gx.shape[0]))
-            offset = 0
-            for i in range(self.ncore):
-                nsnp = snp_per_node[0]
-                self._pvals[offset:offset+nsnp, :] = recvbuf[i][:nsnp, :]
-                self.logger.debug("Adding next {:d} SNPs from index {:d}".format(nsnp, offset))
-                offset += nsnp
+            # self._pvals = np.zeros((self.gt.shape[0], self.gx.shape[0]))
+            # offset = 0
+            # for i in range(self.ncore):
+            #     nsnp = snp_per_node[i]
+            #     self._pvals[offset:offset+nsnp, :] = recvbuf[i][:nsnp, :]
+            #     self.logger.debug("Adding next {:d} SNPs from index {:d}".format(nsnp, offset))
+            #     offset += nsnp
             self._qscores = np.concatenate(qscores)
         else:
             assert qscores is None

@@ -10,5 +10,5 @@ def split_genotype(geno, ncore):
         end = offset + maxsnp
         data[dest] = geno[start:end, :]
         offset += maxsnp
-    data[ncore-1] = geno[offset:nsnps, :]
+    data[ncore-1] = geno[offset:, :]
     return data

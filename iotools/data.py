@@ -255,7 +255,15 @@ class Data():
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
 
-        self.logger.debug("Completed reading expression levels of {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
+        if self.args.selected_donors:
+            self.logger.debug("Selecting Samples from user supplied list")
+            with open(self.args.selected_donors) as instream:
+                donors_user_list = [l.strip() for l in instream.readlines()]
+            donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
+            expr_donors = [expr_donors[ix] for ix in donors_ix]
+            expression  = expression[:, donors_ix]
+
+        self.logger.debug("Completed reading expression levels of {:d} genes in {:d} samples".format(expression.shape[0], expression.shape[1]))
 
         ### for GTEx ###
         if(self.args.isdosage):
@@ -281,11 +289,6 @@ class Data():
         #     if g.start > genes[i+1].start and g.chrom == genes[i+1].chrom:
         #         print(g, genes[i+1])
 
-        if self.args.cismasking:
-            self.logger.debug("Generate cis-masks for GX matrix for each SNP")
-            cis_masks = self.get_cismasks(self._snpinfo, self._geneinfo, self.args.chrom)
-            self._snps_masks_lists, self._compressed_masks = self.compress_cis_masks(cis_masks)
-
         if self.args.forcetrans:
             self.logger.debug("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
             ix2keep = list()
@@ -304,6 +307,13 @@ class Data():
             ix2keep = np.array(ix2keep)
             self._expr = self._expr[ix2keep, :]
             self._geneinfo = [self._geneinfo[i] for i in ix2keep]
+
+        if self.args.cismasking:
+            self.logger.debug("Generate cis-masks for GX matrix for each SNP")
+            cis_masks = self.get_cismasks(self._snpinfo, self._geneinfo, self.args.chrom)
+            self._snps_masks_lists, self._compressed_masks = self.compress_cis_masks(cis_masks)
+
+        self.logger.debug("Selected {:d} genes for analysis".format(self._expr.shape[0]))
 
         self.normalize_and_center_dosage(dosage_filtered_selected)
 

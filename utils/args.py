@@ -58,6 +58,7 @@ class Args():
         self.vcf_file    = args.vcf_filename
         self.oxf_file    = args.oxf_filename
         # self.oxf_columns = args.oxf_columns
+        self.selected_donors = args.selected_donors
         self.isdosage    = args.isdosage
         self.forcetrans  = args.forcetrans
         self.forcecis    = args.forcecis
@@ -105,8 +106,8 @@ class Args():
                 self.logger.info('NO GENE EXPRESSION FILE PROVIDED. SIMULATING GENE EXPRESSION.')
 
     def masking(self, forcecis, forcetrans, cismasking):
-        if sum([forcecis, forcetrans, cismasking]) > 1:
-            raise argparse.ArgumentTypeError("Mutually exclusive options, choose one of --force-trans, --force-cis, --cismask")
+        if sum([forcecis, forcetrans]) > 1:
+            raise argparse.ArgumentTypeError("Mutually exclusive options, choose one of --force-trans or --force-cis")
 
     def parse_args(self):
 
@@ -137,6 +138,12 @@ class Args():
                             dest='isdosage',
                             action='store_true',
                             help='Read dosages')
+
+        parser.add_argument('--selected-donors',
+                            type=str,
+                            dest='selected_donors',
+                            metavar='FILE',
+                            help='List of donors ids to select')
 
         parser.add_argument('--no-dosage',
                             dest='isdosage',
