@@ -126,7 +126,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 	end = clock();
 	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-	printf("SVD calculation took %f seconds \n", cpu_time_used);
+	// printf("SVD calculation took %f seconds \n", cpu_time_used);
 
 	for ( int i = 0; i < nsnp; i++ ) {
 
@@ -142,6 +142,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 		if ( null == PERM_NULL ) {
 			P[i] = permuted_null ( nS, X, W, Q[i], &MUQ[i], &SIGQ[i], nsample );
+			// printf("Pval: %f \n", P[i]);
 		}
 		else if ( null == MAF_NULL ) {
 			MUQ[i] = muQmaf;
@@ -282,9 +283,15 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 				+ gtmu4 * q4;
 
 	sig2  =  sig2 - (*muQ) * (*muQ);
-	*sigQ = sqrt(sig2);
 
+	// Due to some numerical error with large sig_b, the variance can be negative, small fix
+	if (sig2 < 0) {
+		sig2 = abs(sig2);
+	}
+
+	*sigQ = sqrt(sig2);  // sometimes this turns out -nan
 	pval = cdf_norm (Q, *muQ, *sigQ);
+
 
 cleanup:
 cleanup_q31_right:
