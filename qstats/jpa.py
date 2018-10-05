@@ -27,15 +27,24 @@ class JPA:
     def pvals(self):
         return self._pvals
 
-
     @property
     def scores(self):
         return self._qscores
 
-    @scores.setter
-    def scores(self, scores):
-        self._qscores = scores
+    # @scores.setter
+    # def scores(self, scores):
+    #     self._qscores = scores
 
+    def apply_mask(self, masks, snpmasks):
+        newqscores = list()
+        for j, mask in enumerate(masks):
+            for i in snpmasks[j]:
+                pvals_crop = np.delete(self.pvals[i,:], mask, axis = 0)
+                self._pvals[i,:][mask] = 1
+                # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(self.pvals[i,:])))
+                newqscore = self.jpascore(pvals_crop)
+                newqscores.append(newqscore)
+        self._qscores = np.array(newqscores)
 
     def jpascore(self, pvals):
         p = np.sort(pvals)

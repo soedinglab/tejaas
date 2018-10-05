@@ -84,23 +84,11 @@ if rank == 0: logger.debug("Computing JPA")
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
 jpa.compute()
 
-# jpa.pvals.shape is [i_snps x g_genes]
-# apply cis masks and recalculate qscores
 if rank == 0:
     if args.cismasking:
         if args.jpa:
             logger.debug("Recomputing JPA scores with cis-mask")
-            nsnps = jpa.pvals.shape[0]
-            newqscores = list()
-            for j, cismask in enumerate(data.cismasks):
-                for i in data.snp_cismasks[j]:
-                    pvals_crop = np.delete(jpa.pvals[i,:], cismask, axis = 0)
-                    # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(jpa.pvals[i,:])))
-                    newqscore = jpa.jpascore(pvals_crop)
-                    newqscores.append(newqscore)
-            jpa.scores = np.array(newqscores)
-            newqscores = np.array(newqscores)
-
+            jpa.apply_mask(data.cismasks, data.snp_cismasks)
 
 if rank == 0: jpa_time = time.time()
 
@@ -129,22 +117,6 @@ if args.rr:
 
             rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks)
             rr.compute()
-
-            ## Old working version but too much overhead for cismasking
-            # for i in range(len(cismasks)):
-            #     gtcent_crop = gtcent[snps_masks_lists[i], :]
-            #     if len(cismasks[i]) > 0:
-            #         expr_crop   = np.delete(expr, cismasks[i], axis=0)
-            #     else:
-            #         expr_crop   = expr
-            #     rr = RevReg(gtcent_crop, expr_crop, sigbeta2, comm, rank, ncore, null = args.nullmodel)
-            #     rr.compute()
-            #     if rank == 0:
-            #         snpinfo_crop = [snpinfo[j] for j in snps_masks_lists[i]]
-            #         geneinfo_crop = [geneinfo[j] for j in cismasks[i]]
-            #         ohandle = Outhandler(args, snpinfo_crop, geneinfo_crop)
-            #         ohandle.append_rr_out(rr)
-
     else:
         if args.nullmodel == 'maf':
             rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
