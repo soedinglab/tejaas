@@ -40,7 +40,8 @@ class JPA:
         for j, mask in enumerate(masks):
             for i in snpmasks[j]:
                 pvals_crop = np.delete(self.pvals[i,:], mask, axis = 0)
-                self._pvals[i,np.array(mask)] = 1
+                if len(mask) > 0:
+                    self._pvals[i,:][np.array(mask)] = 1
                 # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(self.pvals[i,:])))
                 newqscore = self.jpascore(pvals_crop)
                 newqscores.append(newqscore)
