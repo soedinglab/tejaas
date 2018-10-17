@@ -51,11 +51,11 @@ LAPACKE_dgesvd ( int matrix_layout, char jobu, char jobvt,
  *  Description:  SVD of rectangular double precision matrix
  *                A is matrix of size m x n
  *                A = USV' [U size m x k, S size k x k, V size n x k] ... k = min(m, n)
- *                Returns U and S
+ *                Returns U, S and VT
  * =====================================================================================
  */
 	bool
-dsvd ( double *A, int m, int n, double *S, double *U )
+dsvd ( double *A, int m, int n, double *S, double *U, double *VT )
 {
 	bool success = false;
 	int info;
@@ -64,13 +64,9 @@ dsvd ( double *A, int m, int n, double *S, double *U )
 	else k = n;
 	
 	double * superb;
-	double * VT;
 	superb = (double *) calloc( (unsigned long) (k - 1) * sizeof( double ), 64 );
 	if (superb == NULL) {success = false; goto cleanup_superb;}
 
-	VT     = (double *) calloc( (unsigned long) k * n   * sizeof( double ), 64 );
-	if (VT == NULL) {success = false; goto cleanup_VT;}
-	
 	info = LAPACKE_dgesvd(LAPACK_ROW_MAJOR, 'S', 'S', m, n, A, n, S, U, k, VT, n, superb);
 	
 	if ( info != 0 ) {
@@ -82,8 +78,6 @@ dsvd ( double *A, int m, int n, double *S, double *U )
 	}
 
 cleanup:
-cleanup_VT:
-	free(VT);
 cleanup_superb:
 	free(superb);
 

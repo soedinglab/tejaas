@@ -49,7 +49,7 @@ void my_cdfnorm( double* X, double* P) {
 #define MAF_NULL 1
 #define PERM_NULL 2
 
-void genotype_variance ( double* GT, int nsnp, int nsample, double* SX2, int null );
+bool genotype_variance ( double* GT, int nsnp, int nsample, double* SX2, int null );
 bool getSmod( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int nS );
 bool getW(double* U, double* Smod, double* W, int nsample, int nS, int ioff);
 double vecT_smat_vec ( int n, double* v, double* A, double* D );
@@ -58,6 +58,13 @@ void getWnullmaf ( double* W, double* SM, double* muQmaf, double* sig2Qmaf, doub
 //double qnull_maf ( double Q, double mu, double sigma );
 double gt4maf ( double f );
 double cdf_norm ( double x, double mu, double sigma );
+
+
+bool A_vecV(double* A, double* v, double* B, int ngene, int nsample, int ioff);
+bool matmulAB( double* A, double* B, double* C, int ngene, int nS, int nsample) ;
+bool diagA_B ( double* A, double* B, double* C, int nS, int nsample, int ioff);
+bool getLinv_ST ( double* S, double* Linv_ST, double* sx2, double* sb2, int nsnp, int nS );
+
 
 
 /* 
@@ -87,10 +94,13 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	double *U   = (double *) calloc( (unsigned long) nsample * nS      * sizeof( double ), 64 );
 	if (U == NULL) {success = false; goto cleanup_U;}
 
-	double *SM  = (double *) calloc( (unsigned long) nsnp    * nS      * sizeof( double ), 64 );
+	double *VT  = (double *) calloc( (unsigned long )  nS * ngene      * sizeof( double ), 64 );
+	if (VT == NULL) {success = false; goto cleanup_VT;}
+
+	double *SM  = (double *) calloc( (unsigned long)    nsnp * nS      * sizeof( double ), 64 );
 	if (SM == NULL) {success = false; goto cleanup_SM;}
 
-	double *W   = (double *) calloc( (unsigned long) nS      * nS      * sizeof( double ), 64 );
+	double *W   = (double *) calloc( (unsigned long)      nS * nS      * sizeof( double ), 64 );
 	if (W == NULL) {success = false; goto cleanup_W;}
 
 	double *X   = (double *) calloc(                           nsample * sizeof( double ), 64 );
@@ -110,10 +120,10 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	clock_t start, end;
 	double cpu_time_used;
 	start = clock();
-	success = dsvd (GXT, nsample, ngene, S, U);
+	success = dsvd (GXT, nsample, ngene, S, U, VT);
 	if ( success == false ) goto cleanup;
 
-	genotype_variance(GT, nsnp, nsample, SX2, null);
+	success = genotype_variance(GT, nsnp, nsample, SX2, null);
 
 	success = getSmod (S, SM, SX2, SB2, nsnp, nS);
 	if ( success == false ) goto cleanup;
@@ -131,6 +141,8 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	for ( int i = 0; i < nsnp; i++ ) {
 
 		if (null == PERM_NULL) {                        /* gets W for every SNP if using permutation null, because sigmax2 is not fixed */
+			// Here probably add some check when G < N
+		    // and also multiply by 1/SX2[i] because it is not fixed here
 			success = getW (U, SM, W, nsample, nS, i*nS);
 			if ( success == false ) goto cleanup;
 		}
@@ -138,6 +150,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 		for ( int j = 0; j < nsample; j++) {
 			X[j] = GT[ i*nsample + j ];
 		}
+
 		Q[i] = vecT_smat_vec ( nS, X, W, D1 );
 
 		if ( null == PERM_NULL ) {
@@ -163,6 +176,8 @@ cleanup_W:
 	free(W);
 cleanup_SM:
 	free(SM);
+cleanup_VT:
+	free(VT);
 cleanup_U:
 	free(U);
 cleanup_S:
@@ -173,6 +188,241 @@ cleanup_GXT:
 	return success;
 
 }		/* -----  end of function qscore  ----- */
+
+
+bool betas(double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, double* B)
+{
+	bool success;
+	int info;
+	int nS;                                     /* number of components of SVD */
+
+	success = false;
+	nS = min(ngene, nsample);
+
+	double *GXT = (double *) calloc( (unsigned long)  ngene * nsample  * sizeof( double ), 64 );
+	if (GXT == NULL) {success = false; goto cleanup_GXT;}
+
+	double *preB = (double *) calloc( (unsigned long)  ngene * nsample  * sizeof( double ), 64 );
+	if (preB == NULL) {success = false; goto cleanup_preB;}
+
+	double *Bi = (double *) calloc( (unsigned long)           ngene    * sizeof( double ), 64 );
+	if (Bi == NULL) {success = false; goto cleanup_Bi;}
+
+	double *S   = (double *) calloc(                           nS      * sizeof( double ), 64 );
+	if (S == NULL) {success = false; goto cleanup_S;}
+
+	double *U   = (double *) calloc( (unsigned long)   nsample * nS    * sizeof( double ), 64 );
+	if (U == NULL) {success = false; goto cleanup_U;}
+
+	double *UT   = (double *) calloc( (unsigned long)    nS * nsample  * sizeof( double ), 64 );
+	if (UT == NULL) {success = false; goto cleanup_UT;}
+
+	double *VT  = (double *) calloc( (unsigned long )   nS * ngene     * sizeof( double ), 64 );
+	if (VT == NULL) {success = false; goto cleanup_VT;}
+
+	double *V  = (double *) calloc( (unsigned long )    ngene * nS     * sizeof( double ), 64 );
+	if (V == NULL) {success = false; goto cleanup_V;}
+
+	// contains nsnps vector of size nS (diagonal elements of the S matrix for each snp)
+	double *Linv_ST  = (double *) calloc( (unsigned long)  nS * nsnp      * sizeof( double ), 64 );
+	if (Linv_ST == NULL) {success = false; goto cleanup_Linv_ST;}
+
+	// this could be extended to contain the matrix for all snps? maybe to much memory (multiply by *nsnp)
+	double *Linv_STUT  = (double *) calloc( (unsigned long) nS * nsample  * sizeof( double ), 64 );
+	if (Linv_STUT == NULL) {success = false; goto cleanup_Linv_STUT;}
+
+	double *X   = (double *) calloc(                           nsample * sizeof( double ), 64 );
+	if (X == NULL) {success = false; goto cleanup_X;}
+
+	double *SX2 = (double *) calloc(                           nsnp    * sizeof( double ), 64 );
+	if (SX2 == NULL) {success = false; goto cleanup_SX2;}
+
+	success = transpose(GX, ngene, nsample, GXT);
+	if ( success == false ) goto cleanup;
+
+	clock_t start, end;
+	double cpu_time_used;
+	start = clock();
+	success = dsvd (GXT, nsample, ngene, S, U, VT);
+	if ( success == false ) goto cleanup;
+
+	success = transpose(U, nsample, nS, UT);
+	if ( success == false ) goto cleanup;
+
+	success = transpose(VT, nS, ngene, V);
+	if ( success == false ) goto cleanup;
+
+	success = genotype_variance(GT, nsnp, nsample, SX2, PERM_NULL);
+	getLinv_ST (S, Linv_ST, SX2, SB2, nsnp, nS);
+
+	for ( int i = 0; i < nsnp; i++ ) {
+		for ( int j = 0; j < nsample; j++) {
+			X[j] = GT[ i*nsample + j ];
+		}
+
+		// Do Linv_ST * UT
+		diagA_B ( Linv_ST, UT, Linv_STUT, nS, nsample, i*nS);
+
+		// Now do V * Linv_STUT
+		matmulAB( V, Linv_STUT, preB, ngene, nS, nsample);
+
+		// Finally, multipliy preB * X[i]
+		// preB is ngene x nsample
+		A_vecV(preB, X, B, ngene, nsample, i*ngene);
+	}
+
+	end = clock();
+	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("Betas calculation took %f seconds \n", cpu_time_used);
+	success = true;
+
+
+cleanup:
+cleanup_SX2:
+	free(SX2);
+cleanup_X:
+	free(X);
+cleanup_Linv_STUT:
+	free(Linv_STUT);
+cleanup_Linv_ST:
+	free(Linv_ST);
+cleanup_V:
+	free(V);
+cleanup_VT:
+	free(VT);
+cleanup_UT:
+	free(UT);
+cleanup_U:
+	free(U);
+cleanup_S:
+	free(S);
+cleanup_Bi:
+	free(Bi);
+cleanup_preB:
+	free(preB);
+cleanup_GXT:
+	free(GXT);
+
+	return success;
+
+}
+
+// A is ngene x nsample
+// v is nsample x 1
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  A_vecV
+ *  Description:  Multiplies matrix A of size m x n
+ *                with vector V of length n x 1
+ *                and outputs vector B of size m x 1
+ * =====================================================================================
+ */
+bool A_vecV(double* A, double* v, double* B, int m, int n, int ioff)
+{
+	double alpha = 1.0;
+	double beta  = 0.0;
+/*	int m = ngene;
+	int n = nsample;*/
+	double * y;
+	y = (double *) calloc( (unsigned long) (m - 1) * sizeof( double ), 64 );
+
+	for (int i=0; i < m; i++) {
+		y[i] = 0.0;
+	}
+
+	cblas_dgemv(CblasRowMajor, CblasNoTrans, m, n, alpha, A, n, v, 1, beta, y, 1 );
+
+	for (int i=0; i<m; i++)
+	{
+		B[ioff + i] = y[i];
+		//printf("B[%d]=%f - ", ioff +i, B[ioff+i]);
+	}
+
+	return true;
+}
+
+
+// V is          ngene x nS
+// Linv_STUT is  nS x nsample
+
+// VT is k x G
+// V  is G x k
+// LinvSTUT is k x N 
+// bool matmulAB( double* V, double* Linv_STUT, double* preB, int ngene, int nS, int nsample) 
+// returns G x N matrix
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  matmulAB
+ *  Description:  Multiplies matrix A of size m x k
+ *                with matrix B of size k x n and returns 
+ *                matrix C of size m x n
+ * =====================================================================================
+ */
+
+bool matmulAB( double* A, double* B, double* C, int m, int k, int n) 
+{
+	double alpha = 1.0;
+	double beta  = 0.0;
+/*	int m = ngene;
+	int n = nsample;
+	int k = nS;*/
+
+	for (int i = 0; i < (m*n); i++) {
+        C[i] = 0.0;
+    }
+
+    cblas_dgemm(CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+                m, n, k, alpha, A, k, B, n, beta, C, n);
+
+    return true;
+
+}
+
+
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  diagA_B
+ *  Description:  Multiplies a diagonal matrix A of size m x m (nS x nS) which is actually a vector of length m
+ 				  with dense matrix B of size m x n ( nS x nsample )
+ 				  and outputs C of size (m x n) (nS x nsample)
+ * =====================================================================================
+ */
+
+bool diagA_B ( double* A, double* B, double* C, int nS, int nsample, int ioff)
+{
+	for (int i = 0; i < nS; i++) {
+			for (int j = 0; j < nsample; j++) {
+				C[ i*nsample + j ] = A[ioff + i] * B[i*nsample + j];
+			}
+		}
+	return true;
+}
+
+/* 
+ * ===  FUNCTION  ======================================================================
+ *         Name:  getLinv_ST
+ *  Description:  Return L_inv * ST from S and sigma_beta2 and sigma_x2
+ *                (STS + sigma_x2/sigma_b2)^-1 * ST
+ * =====================================================================================
+ */
+	bool
+getLinv_ST ( double* S, double* Linv_ST, double* sx2, double* sb2, int nsnp, int nS )
+{
+	double S2i;
+	double Si;
+	for ( int i = 0; i < nS; i++ ) {
+		Si  = S[i];
+		S2i = Si * Si;
+		for ( int j = 0; j < nsnp; j++ ) {
+			Linv_ST[ j * nS + i ] =  Si / (S2i + (sx2[j] / sb2[j]));
+		}
+	}
+
+	return true;
+}		/* -----  end of function getLinv_ST  ----- */
+
 
 
 /* 
@@ -357,8 +607,6 @@ cleanup_P:
 	return pval;
 }		/* -----  end of function qnull_maf  ----- */
 
-
-
 /* 
  * ===  FUNCTION  ======================================================================
  *         Name:  getSmod
@@ -385,6 +633,7 @@ getSmod ( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int nS )
  * ===  FUNCTION  ======================================================================
  *         Name:  getW
  *  Description:  Return the W
+ success = getW (U, SM, W, nsample, nS, i*nS);
  * =====================================================================================
  */
 	bool
@@ -436,7 +685,7 @@ getWnullmaf ( double* W, double* Smod, double* muQmaf, double* sig2Qmaf, double*
  *  Description:  
  * =====================================================================================
  */
-	void
+	bool
 genotype_variance ( double* GT, int nsnp, int nsample, double* SX2, int null )
 {
 	double mean, var;
@@ -457,7 +706,7 @@ genotype_variance ( double* GT, int nsnp, int nsample, double* SX2, int null )
 		}
 		SX2[i] = var;
 	}
-	return;
+	return true;
 }		/* -----  end of function genotype_variance  ----- */
 
 
