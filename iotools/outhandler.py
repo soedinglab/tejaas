@@ -2,6 +2,9 @@ import numpy as np
 import itertools
 import os
 
+from utils.logs import MyLogger
+logger = MyLogger(__name__)
+
 class Outhandler:
 
     def __init__(self, args, snpinfo, geneinfo):
@@ -9,8 +12,10 @@ class Outhandler:
         self.geneinfo = geneinfo
         self.args = args
 
-        if not os.path.exists(os.path.dirname(self.args.outprefix)):
-            os.makedirs(os.path.dirname(self.args.outprefix))
+        dirname = os.path.dirname(os.path.realpath(self.args.outprefix))
+
+        logger.debug('Writing result in: {:s}'.format(dirname))
+        if not os.path.exists(dirname): os.makedirs(dirname)
 
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
