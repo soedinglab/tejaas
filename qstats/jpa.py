@@ -183,6 +183,6 @@ class JPA:
             self.mpicompute()
         else:
             pvals, qscores = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, jpa = self.qcalc, usemask = self.usemask)
-            self._pvals = pvals
+            self._pvals = pvals.reshape(self.gt.shape[0], self.gx.shape[0])
             self._qscores = qscores
         return

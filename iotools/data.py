@@ -131,13 +131,13 @@ class Data():
             if i == len(genemasks) - 1: appendmask = True # no more masks to process
 
             if appendmask:
-                thismask = CisMask(remove_genes = prev_mask, apply_to_snps = snplist)
+                thismask = CisMask(rmv_id = prev_mask, apply2 = snplist)
                 cismasks.append(thismask)
                 snplist = list([i])
                 prev_mask = mask
                 appendmask = False
 
-        if len(voidlist) > 0: cismasks.append(CisMask(remove_genes = voidmask, apply_to_snps = voidlist))
+        if len(voidlist) > 0: cismasks.append(CisMask(rmv_id = voidmask, apply2 = voidlist))
         return cismasks
                 
 
@@ -201,7 +201,8 @@ class Data():
     ##         if (len(cis_masks[i]) == len(prev_mask)) and all(cis_masks[i] == prev_mask):
     ##             compressed_snps.append(i)
     ##         else:
-    ##             compressed_masks.append(cis_masks[i])
+    ##             # compressed_masks.append(cis_masks[i])
+    ##             compressed_masks.append(prev_mask)
     ##             prev_mask = cis_masks[i]
     ##             snps_masks_lists.append(compressed_snps)
     ##             compressed_snps = []
@@ -314,7 +315,7 @@ class Data():
             vcf = ReadVCF(self.args.vcf_file, self.args.startsnp, self.args.endsnp)
             dosage = vcf.dosage
             gt_donor_ids = vcf.donor_ids
-            snpinfo = oxf.snpinfo
+            snpinfo = vcf.snpinfo
 
         snpinfo_filtered, dosage_filtered = self.filter_snps(snpinfo, dosage)
         self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
@@ -335,12 +336,17 @@ class Data():
             expr_donors = [expr_donors[ix] for ix in donors_ix]
             expression  = expression[:, donors_ix]
 
-        self.logger.debug("Found {:d} genes in {:d} samples".format(expression.shape[0], expression.shape[1]))
+        self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
 
         if(self.args.gxtrim):
             ### for Cardiogenics ###
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
+            #import pickle
+            #ginfo_file = open('ginfo.pickle', 'wb')
+            #pickle.dump(gene_info, ginfo_file)
+            #ginfo_file.close()
+            #gene_info = pickle.load(open('ginfo.pickle', 'rb'))
         else:
             ### for GTEx ###
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)

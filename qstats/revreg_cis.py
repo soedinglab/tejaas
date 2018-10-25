@@ -12,7 +12,7 @@ from utils.logs import MyLogger
 class RevReg:
 
 
-    def __init__(self, x, y, sigbeta2, comm, rank, ncore, null = 'perm', maf = None, cismasks = [], snps_cismasks = []):
+    def __init__(self, x, y, sigbeta2, comm, rank, ncore, null = 'perm', maf = None, masks = []):
         self.gt = x
         self.gx = y
         self.sigbeta2 = sigbeta2
@@ -28,8 +28,11 @@ class RevReg:
         self._qscores = None
         self._mu = None
         self._sigma = None
-        self._cismasks = cismasks
-        self._snps_cismasks = snps_cismasks
+        self._cismasks = []
+        self._snps_cismasks = []
+        if len(masks) > 0:
+            self._cismasks = [x.rmv_id for x in masks]
+            self._snps_cismasks = [x.apply2 for x in masks]
 
         if self.null == 'perm':
             self.sigx2 = np.var(self.gt, axis = 1)

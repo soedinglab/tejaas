@@ -15,13 +15,13 @@ class GeneInfo(collections.namedtuple('_GeneInfo', GENEINFO_FIELDS)):
     __slots__ = ()
 
 
-CISMASK_FIELDS = ['remove_genes', 'apply_to_snps']
+CISMASK_FIELDS = ['rmv_id', 'apply2']
 class CisMask(collections.namedtuple('_CisMask', CISMASK_FIELDS)):
     __slots__ = ()
 
     @property
     def nsnp(self):
-        return len(self.apply_to_snps)
+        return len(self.apply2)
 
     def __repr__(self):
         parent_string = super(CisMask, self).__repr__()

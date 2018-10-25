@@ -633,7 +633,7 @@ getSmod ( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int nS )
  * ===  FUNCTION  ======================================================================
  *         Name:  getW
  *  Description:  Return the W
- success = getW (U, SM, W, nsample, nS, i*nS);
+ *                success = getW (U, SM, W, nsample, nS, i*nS);
  * =====================================================================================
  */
 	bool

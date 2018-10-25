@@ -14,6 +14,7 @@ from utils.args import Args
 from utils.logs import MyLogger
 from utils import project
 from qstats.jpa import JPA
+from qstats.revreg import RevReg
 from iotools.data import Data
 from iotools.outhandler import Outhandler
 from iotools import readmaf
@@ -33,10 +34,10 @@ if rank == 0: start_time = time.time()
 args = Args(comm, rank)
 logger = MyLogger(__name__)
 
-if args.cismasking:
-    from qstats.revreg_cis import RevReg
-else:
-    from qstats.revreg import RevReg
+#if args.cismasking:
+#    from qstats.revreg_cis import RevReg
+#else:
+#    from qstats.revreg import RevReg
 
 gtcent = None
 gtnorm = None
@@ -54,10 +55,6 @@ if rank == 0:
         data.load()
     gtcent = data.geno_centered
     gtnorm = data.geno_normed
-    #import pickle
-    #gtcent = pickle.load(open('mysimgtcent.pkl', 'rb'))
-    #gtnorm = pickle.load(open('mysimgtnorm.pkl', 'rb'))
-
     snpinfo = data.snpinfo
     expr = data.expression
     geneinfo = data.geneinfo
@@ -92,12 +89,6 @@ if rank == 0: logger.debug("Computing JPA")
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
 jpa.compute()
 
-## if rank == 0:
-##     if args.cismasking:
-##         if args.jpa:
-##             logger.debug("Recomputing JPA scores with cis-mask")
-##             jpa.apply_mask(data.cismasks, data.snp_cismasks)
-
 if rank == 0: jpa_time = time.time()
 
 # Select the SNPs with JPA score above threshold for RevReg
@@ -110,8 +101,17 @@ if args.jpa and args.rr:
     qselect = comm.bcast(select, root = 0)
     comm.barrier()
     #geno = geno[qselect, :]
+    #broadcast this new genotype
 
 if args.rr:
+    sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
+    if args.nullmodel == 'maf':
+        rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
+    elif args.nullmodel == 'perm':
+        rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
+    rr.compute()
+
+if args.rr and 0 == 1:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
     if args.cismasking:
         if args.nullmodel == 'perm':
@@ -139,7 +139,6 @@ if rank == 0: rr_time = time.time()
 if rank == 0: 
     if args.outprefix is None:
         args.outprefix = "out"    
-    rr_time = time.time()
     ohandle = Outhandler(args, snpinfo, geneinfo)
     if args.jpa:
         ohandle.write_jpa_out(jpa)
