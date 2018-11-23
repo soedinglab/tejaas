@@ -87,6 +87,8 @@ class ReadOxford:
         with open(self._samplefile, 'r') as samfile:
             sample = 0
             samplenames = list()
+            next(samfile)
+            next(samfile)
             for line in samfile:
                 if re.search('^#', line):
                     continue

@@ -64,6 +64,7 @@ class Args():
         self.forcetrans  = args.forcetrans
         self.forcecis    = args.forcecis
         self.cismasking  = args.cismasking
+        self.shuffle     = args.shuffle
 
         self.masking(self.forcecis, self.forcetrans, self.cismasking)
 
@@ -154,6 +155,11 @@ class Args():
                             dest='gxtrim',
                             action='store_true',
                             help='Whether to trim version number from gene Ensembl IDs')
+
+        parser.add_argument('--shuffle',
+                            dest='shuffle',
+                            action='store_true',
+                            help='Shuffle the genotypes and gene expression')
 
         parser.add_argument('--selected-donors',
                             type=str,

@@ -64,16 +64,17 @@ if rank == 0:
     
     maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
 
-    #if args.shuffle:        
-    #gtcent_shuf = np.zeros_like(gtcent)
-    #gtnorm_shuf = np.zeros_like(gtnorm)
-    #for i in range(gtcent.shape[0]):
-    #    idx = np.random.permutation(np.arange(0,gtcent.shape[1]))
-    #    np.random.shuffle(idx)
-    #    gtcent_shuf[i,:] = gtcent[i,idx]
-    #    gtnorm_shuf[i,:] = gtnorm[i,idx]    
-    #gtcent = gtcent_shuf
-    #gtnotm = gtnorm_shuf		################## SHUFFLED GENO ASSIGNMENT ALERT ! #######################
+    if args.shuffle:
+        logger.warn("Shuffling genotype.") 
+        gtcent_shuf = np.zeros_like(gtcent)
+        gtnorm_shuf = np.zeros_like(gtnorm)
+        for i in range(gtcent.shape[0]):
+            idx = np.random.permutation(np.arange(0,gtcent.shape[1]))
+            np.random.shuffle(idx)
+            gtcent_shuf[i,:] = gtcent[i,idx]
+            gtnorm_shuf[i,:] = gtnorm[i,idx]
+        gtcent = gtcent_shuf
+        gtnotm = gtnorm_shuf
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
