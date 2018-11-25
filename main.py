@@ -45,6 +45,7 @@ gtcent = None
 gtnorm = None
 expr   = None
 maf = None
+snpinfo = None
 
 if rank == 0:
     data = Data(args)
@@ -75,6 +76,7 @@ if rank == 0:
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
 expr   = comm.bcast(expr,  root = 0)
+snpinfo = comm.bcast(snpinfo, root = 0)
 maf  = comm.bcast(maf, root = 0)
 comm.barrier()
 
@@ -82,7 +84,7 @@ if rank == 0: read_time = time.time()
 
 if rank == 0: logger.debug("Computing JPA")
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
-jpa.compute()
+# jpa.compute()
 
 if rank == 0:
     if args.cismasking:
@@ -92,16 +94,16 @@ if rank == 0:
 
 if rank == 0: jpa_time = time.time()
 
-# Select the SNPs with JPA score above threshold for RevReg
-if args.jpa and args.rr:
-    select = None
-    if rank == 0:
-        select = np.where(jpa.scores > args.jpacut)[0]
-        logger.debug('JPA threshold: {:g}, and number of SNPs retained: {:d}'.format(args.jpacut, select.shape[0]))
+# # Select the SNPs with JPA score above threshold for RevReg
+# if args.jpa and args.rr:
+#     select = None
+#     if rank == 0:
+#         select = np.where(jpa.scores > args.jpacut)[0]
+#         logger.debug('JPA threshold: {:g}, and number of SNPs retained: {:d}'.format(args.jpacut, select.shape[0]))
 
-    qselect = comm.bcast(select, root = 0)
-    comm.barrier()
-    #geno = geno[qselect, :]
+#     qselect = comm.bcast(select, root = 0)
+#     comm.barrier()
+#     #geno = geno[qselect, :]
 
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
@@ -111,11 +113,11 @@ if args.rr:
                 logger.debug("Cismasking enabled")
                 snps_masks = data.snp_cismasks
                 cismasks   = data.cismasks
+                logger.debug("Calculated {:d} gene masks".format(len(cismasks)))
             else:
                 snps_masks = []
                 cismasks   = []
-
-            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks)
+            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks, outdir = args.outprefix, snpinfo = snpinfo)
             rr.compute()
     else:
         if args.nullmodel == 'maf':
@@ -125,6 +127,9 @@ if args.rr:
         rr.compute()
 
 if rank == 0: rr_time = time.time()
+
+# if rank == 0:
+#     print("betas ", rr.betas.shape)
 
 # if rank == 0:
 #     ohandle = Outhandler(args, snpinfo, geneinfo)
@@ -137,11 +142,13 @@ if rank == 0:
         args.outprefix = "out"    
     rr_time = time.time()
     if rank == 0:
-        ohandle = Outhandler(args, snpinfo, geneinfo)
+        if len(rr.selected_snps):
+            ohandle = Outhandler(args, snpinfo, geneinfo, selected=rr.selected_snps)
         if args.jpa:
             ohandle.write_jpa_out(jpa)
         if args.rr:
             ohandle.write_rr_out(jpa, rr)
+            # np.savetxt("my_betas.txt", rr.betas)
 
 if rank == 0: write_time = time.time()
 

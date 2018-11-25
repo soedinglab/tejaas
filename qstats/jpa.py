@@ -105,7 +105,6 @@ class JPA:
             geno = mpihelper.split_genotype(self.gt, self.ncore)
             expr = self.gx
             snp_per_node = [x.shape[0] for x in geno]
-            print(snp_per_node)
             # nmax = max(snp_per_node)
         else:
             geno = None

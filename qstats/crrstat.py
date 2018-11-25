@@ -20,9 +20,6 @@ def crevreg(geno, expr, sb2, null, maf):
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                         np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED')
                        ]
-
-    # print("expr shape is: genes x nsamples", expr.shape)
-    # print("geno shape is: snps x nsamples", geno.shape)
     x = geno.reshape(-1,)
     y = expr.reshape(-1,)
     xsize = x.shape[0]

@@ -130,7 +130,8 @@ class Data():
             if (len(cis_masks[i]) == len(prev_mask)) and all(cis_masks[i] == prev_mask):
                 compressed_snps.append(i)
             else:
-                compressed_masks.append(cis_masks[i])
+                # compressed_masks.append(cis_masks[i])
+                compressed_masks.append(prev_mask)
                 prev_mask = cis_masks[i]
                 snps_masks_lists.append(compressed_snps)
                 compressed_snps = []

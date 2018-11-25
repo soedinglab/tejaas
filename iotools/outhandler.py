@@ -4,20 +4,26 @@ import os
 
 class Outhandler:
 
-    def __init__(self, args, snpinfo, geneinfo):
+    def __init__(self, args, snpinfo, geneinfo, selected = None):
         self.snpinfo  = snpinfo
         self.geneinfo = geneinfo
         self.args = args
+        self.selected = selected.reshape(-1,)
+        if len(self.selected):
+            self.snpinfo = [self.snpinfo[int(i)] for i in self.selected]
 
         if not os.path.exists(os.path.dirname(self.args.outprefix)):
             os.makedirs(os.path.dirname(self.args.outprefix))
 
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
+        scores = jpa.scores
+        if len(self.selected):
+            scores = jpa.scores[self.selected]
         with open(fname, "w") as f:
             f.write("snpid\tjpascore\n")
             for i, snp in enumerate(self.snpinfo):
-                f.write("{:s}\t{:g}\n".format(snp.varid, jpa.scores[i]))
+                f.write("{:s}\t{:g}\n".format(snp.varid, scores[i]))
 
 
     def write_rr_out(self, jpa, rr):
@@ -29,12 +35,15 @@ class Outhandler:
 
         select = np.where(rr.pvals < self.args.psnpcut)[0]
         fname = self.args.outprefix + "_gene_snp_list.txt"
+        pvals = jpa.pvals
+        if len(self.selected):
+            pvals = jpa.pvals[self.selected]
         with open(fname, "w") as f:
             f.write("geneid\tsnpid\tpval\n")
             for idx in select:
-                gene_select = np.where(jpa.pvals[idx, :] < self.args.pgenecut)[0]
+                gene_select = np.where(pvals[idx, :] < self.args.pgenecut)[0]
                 for gidx in gene_select:
-                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, jpa.pvals[idx][gidx]) )
+                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, pvals[idx][gidx]) )
 
     def append_rr_out(self, rr):
         fname = self.args.outprefix + "_rr.txt"

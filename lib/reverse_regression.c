@@ -165,24 +165,37 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 	}
 
+	end = clock();
+	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+	printf("RR calculation took %f seconds \n", cpu_time_used);
+
 cleanup:
 cleanup_D1:
+	//printf("cleaning D1\n");
 	free(D1);
 cleanup_SX2:
+	//printf("cleaning SX2\n");
 	free(SX2);
 cleanup_X:
+	//printf("cleaning X\n");
 	free(X);
 cleanup_W:
+	//printf("cleaning W\n");
 	free(W);
 cleanup_SM:
+	//printf("cleaning SM\n");
 	free(SM);
 cleanup_VT:
+	//printf("cleaning VT\n");
 	free(VT);
 cleanup_U:
+	//printf("cleaning U\n");
 	free(U);
 cleanup_S:
+	//printf("cleaning S\n");
 	free(S);
 cleanup_GXT:
+	//printf("cleaning GXT\n");
 	free(GXT);
 
 	return success;
@@ -319,12 +332,14 @@ cleanup_GXT:
  */
 bool A_vecV(double* A, double* v, double* B, int m, int n, int ioff)
 {
+	bool success;
 	double alpha = 1.0;
 	double beta  = 0.0;
 /*	int m = ngene;
 	int n = nsample;*/
 	double * y;
 	y = (double *) calloc( (unsigned long) (m - 1) * sizeof( double ), 64 );
+	if (y == NULL) {success = false; goto cleanup_y;}
 
 	for (int i=0; i < m; i++) {
 		y[i] = 0.0;
@@ -337,8 +352,11 @@ bool A_vecV(double* A, double* v, double* B, int m, int n, int ioff)
 		B[ioff + i] = y[i];
 		//printf("B[%d]=%f - ", ioff +i, B[ioff+i]);
 	}
+	success = true;
 
-	return true;
+	cleanup_y:
+		free(y);
+	return success;
 }
 
 
