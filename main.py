@@ -84,7 +84,7 @@ if rank == 0: read_time = time.time()
 
 if rank == 0: logger.debug("Computing JPA")
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa)
-# jpa.compute()
+jpa.compute()
 
 if rank == 0:
     if args.cismasking:
@@ -117,8 +117,17 @@ if args.rr:
             else:
                 snps_masks = []
                 cismasks   = []
-            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks, outdir = args.outprefix, snpinfo = snpinfo)
+            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks, outdir = args.outprefix)
             rr.compute()
+            if rank == 0:
+                rr.write_rr_out("it0", snpinfo, geneinfo)
+            rr.compute_sparse(ncutoff = 1000, nbetas = 1000)
+            if rank == 0:
+                rr.write_rr_out("it1", snpinfo, geneinfo)
+            rr.compute_sparse(ncutoff = 100, nbetas = 100)
+            if rank == 0:
+                rr.write_rr_out("it2", snpinfo, geneinfo)
+
     else:
         if args.nullmodel == 'maf':
             rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
@@ -137,18 +146,18 @@ if rank == 0: rr_time = time.time()
 #     ohandle.write_rr_out(rr)
     
 # Output handling only from master node // move it to module
-if rank == 0: 
-    if args.outprefix is None:
-        args.outprefix = "out"    
-    rr_time = time.time()
-    if rank == 0:
-        if len(rr.selected_snps):
-            ohandle = Outhandler(args, snpinfo, geneinfo, selected=rr.selected_snps)
-        if args.jpa:
-            ohandle.write_jpa_out(jpa)
-        if args.rr:
-            ohandle.write_rr_out(jpa, rr)
-            # np.savetxt("my_betas.txt", rr.betas)
+# if rank == 0: 
+#     if args.outprefix is None:
+#         args.outprefix = "out"    
+#     rr_time = time.time()
+#     if rank == 0:
+#         if len(rr.selected_snps):
+#             ohandle = Outhandler(args, snpinfo, geneinfo, selected=rr.selected_snps)
+#         if args.jpa:
+#             ohandle.write_jpa_out(jpa)
+#         if args.rr:
+#             ohandle.write_rr_out(jpa, rr)
+#             # np.savetxt("my_betas.txt", rr.betas)
 
 if rank == 0: write_time = time.time()
 
