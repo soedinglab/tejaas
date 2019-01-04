@@ -63,16 +63,17 @@ class RevReg:
 
     def slavejob(self, gt, gx, sb2, sx2, maf, masks, start, end, usemask):
         if usemask:
-            startsnp = masks[0].apply2[0]
-            endsnp = masks[-1].apply2[-1]
-            totsnp = endsnp - startsnp + 1
+            startsnp = min([min(x.apply2) for x in masks])
+            endsnp = max([max(x.apply2) for x in masks])
+            totsnp = sum(x.nsnp for x in masks)
             self.logger.debug("Rank {:d} using {:d} masks on {:d} SNPs [{:d} to {:d}]".format(self.rank, len(masks), totsnp, startsnp, endsnp))
             stime = time.time()
             p, q, mu, sig = self.maskjob(gt, gx, sb2, sx2, maf, masks)
             self.logger.debug("Rank {:d} took {:g} seconds".format(self.rank, time.time() - stime))
         else:
             self.logger.debug("Reporting from node {:d}. Using {:d} SNPs [{:d} to {:d}]".format(self.rank, end - start + 1, start, end))
-            p, q, mu, sig = self.basejob(gt, gx, sb2, sx2, maf, start, end)
+            applyon = np.arange(start,end)
+            p, q, mu, sig = self.basejob(gt, gx, sb2, sx2, maf, applyon)
         return p, q, mu, sig
 
 
@@ -82,12 +83,10 @@ class RevReg:
         mu = np.array([])
         sig = np.array([])
         for mask in masks:
-            start = min(mask.apply2)
-            end = max(mask.apply2) + 1
             usegenes = np.ones(gx.shape[0], dtype=bool)
             if mask.rmv_id.shape[0] > 0: usegenes[mask.rmv_id] = False
             masked_gx = np.ascontiguousarray(gx[usegenes])
-            _p, _q, _mu, _sig = self.basejob(gt, masked_gx, sb2, sx2, maf, start, end)
+            _p, _q, _mu, _sig = self.basejob(gt, masked_gx, sb2, sx2, maf, np.array(mask.apply2))
             p = np.append(p, _p)
             q = np.append(q, _q)
             mu = np.append(mu, _mu)
@@ -95,15 +94,15 @@ class RevReg:
         return p, q, mu, sig
 
 
-    def basejob(self, gt, gx, sb2, sx2, maf, start, end):
-        slv_gt  = np.ascontiguousarray(gt[start:end, :])
+    def basejob(self, gt, gx, sb2, sx2, maf, applyon):
+        slv_gt  = np.ascontiguousarray(gt[applyon, :])
         slv_gx  = gx
-        slv_sb2 = sb2[start:end]
-        slv_sx2 = sx2[start:end]
+        slv_sb2 = sb2[applyon]
+        slv_sx2 = sx2[applyon]
         if self.null == 'perm':
             p, q, mu, sig = crrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
         elif self.null == 'maf':
-            slv_maf = maf[start:end]
+            slv_maf = maf[applyon]
             p, q, mu, sig = crrstat.maf_null (slv_gt, slv_gx, slv_sb2, slv_sx2, slv_maf)
         #self.logger.debug("Reporting from node {:d}. Sigma = ".format(self.rank) + np.array2string(sig) + "\n" )
         return p, q, mu, sig
@@ -122,7 +121,7 @@ class RevReg:
             # this is the master
             # create a list of index for sending to your slaves
             if self.usemask:
-                self.logger.debug("Masks on: " + ", ".join(['{:d}'.format(len(x.apply2)) for x in self.masks]))
+                self.logger.debug("Masks on: " + ", ".join(['{:d}'.format(x.nsnp) for x in self.masks]))
                 gmasks = mpihelper.split_maskcomp(self.masks, self.ncore)
             else:
                 pstart, pend = mpihelper.split_n(self.gt.shape[0], self.ncore)
@@ -132,22 +131,6 @@ class RevReg:
             sx2  = self.sigx2
             maf  = self.maf
 
-        ##     offset = nmax # this is a hack to keep things in order. Node 0 must get 0:nmax
-        ##     for i in range(1, self.ncore):
-        ##         start = offset
-        ##         end   = offset + nmax if i < (self.ncore - 1) else self.gt.shape[0]
-        ##         self.comm.send(start, dest = i, tag = 10 + 3 * i - 2)
-        ##         self.comm.send(end,   dest = i, tag = 10 + 3 * i - 1)
-        ##         offset += nmax
-        ##     start = 0
-        ##     end = nmax
-        ## else:
-        ##     start = self.comm.recv(source = 0, tag = 10 + 3 * self.rank - 2)
-        ##     end   = self.comm.recv(source = 0, tag = 10 + 3 * self.rank - 1)
-
-        ## if self.rank == 0:
-        ## else:
-        
         sb2  = self.comm.bcast(sb2,  root = 0)
         sx2  = self.comm.bcast(sx2,  root = 0)
         maf  = self.comm.bcast(maf,  root = 0)

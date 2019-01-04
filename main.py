@@ -74,7 +74,7 @@ if rank == 0:
             gtcent_shuf[i,:] = gtcent[i,idx]
             gtnorm_shuf[i,:] = gtnorm[i,idx]
         gtcent = gtcent_shuf
-        gtnotm = gtnorm_shuf
+        gtnorm = gtnorm_shuf
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
@@ -107,34 +107,12 @@ if args.jpa and args.rr:
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
     if args.nullmodel == 'maf':
-        rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
+        rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     rr.compute()
 
-if args.rr and 0 == 1:
-    sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
-    if args.cismasking:
-        if args.nullmodel == 'perm':
-            if rank == 0:
-                logger.debug("Cismasking enabled")
-                snps_masks = data.snp_cismasks
-                cismasks   = data.cismasks
-            else:
-                snps_masks = []
-                cismasks   = []
-
-            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, cismasks = cismasks, snps_cismasks = snps_masks)
-            rr.compute()
-    else:
-        if args.nullmodel == 'maf':
-            rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
-        elif args.nullmodel == 'perm':
-            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
-        rr.compute()
-
 if rank == 0: rr_time = time.time()
-
     
 # Output handling only from master node // move it to module
 if rank == 0: 
