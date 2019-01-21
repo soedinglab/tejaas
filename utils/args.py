@@ -65,6 +65,9 @@ class Args():
         self.forcecis    = args.forcecis
         self.cismasking  = args.cismasking
         self.shuffle     = args.shuffle
+        self.shuffle_file = args.shuffle_file
+        if self.shuffle_file is not None:
+            self.shuffle = True
 
         self.masking(self.forcecis, self.forcetrans, self.cismasking)
 
@@ -159,7 +162,13 @@ class Args():
         parser.add_argument('--shuffle',
                             dest='shuffle',
                             action='store_true',
-                            help='Shuffle the genotypes and gene expression')
+                            help='Shuffle the genotypes randomly')
+
+        parser.add_argument('--shuffle-with',
+                            type=str,
+                            dest='shuffle_file',
+                            metavar='FILE',
+                            help='Shuffle the genotypes using the supplied donor IDs file')
 
         parser.add_argument('--selected-donors',
                             type=str,

@@ -1,5 +1,7 @@
 import numpy as np
 import scipy.stats as ss
+import random
+import os
 
 from iotools import simulate
 from iotools import readgtf
@@ -350,6 +352,15 @@ class Data():
         else:
             ### for GTEx ###
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
+
+        # Shuffle genotype?
+        if self.args.shuffle:
+            if os.path.isfile(self.args.shuffle_file):
+                self.logger.warn("Shuffling genotype using supplied donor IDs")
+                gt_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
+            else:
+                logger.warn("Shuffling genotype randomly")
+                random.shuffle(gt_donor_ids)
 
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
