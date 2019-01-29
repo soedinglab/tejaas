@@ -167,7 +167,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 	end = clock();
 	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-	printf("RR calculation took %f seconds \n", cpu_time_used);
+	// printf("RR calculation took %f seconds \n", cpu_time_used);
 
 cleanup:
 cleanup_D1:
@@ -286,7 +286,7 @@ bool betas(double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample
 
 	end = clock();
 	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
-	printf("Betas calculation took %f seconds \n", cpu_time_used);
+	// printf("Betas calculation took %f seconds \n", cpu_time_used);
 	success = true;
 
 

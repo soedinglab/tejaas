@@ -58,9 +58,20 @@ if rank == 0:
     snpinfo = data.snpinfo
     expr = data.expression
     geneinfo = data.geneinfo
+    print("expr shape:", expr.shape)
+    print("expr std:", np.std(expr, axis=1))
+    print("expr mean:", np.mean(expr, axis=1))
     logger.debug("Retained {:d} SNPs in {:d} samples".format(gtcent.shape[0], gtcent.shape[1]))
     
     maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
+
+    if args.randomize_file is not None:
+        rindices = np.loadtxt(args.randomize_file, dtype=int)
+        if len(rindices) == data.expression.shape[1]:
+            expr = data.expression[:, rindices]
+        else:
+            print("Random indices number do not match with current number of gx donors")
+            raise
 
     #if args.shuffle:        
     #gtcent_shuf = np.zeros_like(gtcent)
@@ -121,19 +132,21 @@ if args.rr:
             rr.compute()
             if rank == 0:
                 rr.write_rr_out("it0", snpinfo, geneinfo)
-            rr.compute_sparse(ncutoff = 1000, nbetas = 1000)
-            if rank == 0:
-                rr.write_rr_out("it1", snpinfo, geneinfo)
-            rr.compute_sparse(ncutoff = 100, nbetas = 100)
-            if rank == 0:
-                rr.write_rr_out("it2", snpinfo, geneinfo)
+            # rr.compute_sparse(ncutoff = 1000, nbetas = 1000)
+            # if rank == 0:
+            #     rr.write_rr_out("it1", snpinfo, geneinfo)
+            # rr.compute_sparse(ncutoff = 100, nbetas = 100)
+            # if rank == 0:
+            #     rr.write_rr_out("it2", snpinfo, geneinfo)
 
     else:
         if args.nullmodel == 'maf':
             rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf)
         elif args.nullmodel == 'perm':
-            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel)
+            rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, outdir = args.outprefix)
         rr.compute()
+        if rank == 0:
+            rr.write_rr_out("it0", snpinfo, geneinfo)
 
 if rank == 0: rr_time = time.time()
 

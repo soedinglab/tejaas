@@ -82,7 +82,7 @@ class RevReg:
             print("write rr out: ", len(mysnpinfo), len(self.pvals))
             for i, x in enumerate(mysnpinfo):
                 f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, self.scores[i], self.null_mu[i], self.null_sigma[i], self.pvals[i]))
-        np.savetxt(self.outdir + "_betas_" + suffix + ".txt", self.betas, fmt='%1.4e')
+        # np.savetxt(self.outdir + "_betas_" + suffix + ".txt", self.betas, fmt='%1.4e')
         if self.selected_genes is not None:
             np.savetxt(self.outdir + "_selected_genes_" + suffix + ".txt", self.selected_genes, fmt='%i')
 
@@ -235,29 +235,24 @@ class RevReg:
         for j in range(slave_betas.shape[0]):  # iterate over all snps
             beta_j        = np.abs(slave_betas[j])
             bestbetas_ind = np.argpartition(beta_j, -nbetas)[-nbetas:]
-            print("bestbetas_ind: ", bestbetas_ind.shape)
             if selected_genes is not None:
-                print("Rank {:d}: selected_genes size: ".format(self.rank), selected_genes.shape)
                 ix = selected_genes[j,:][bestbetas_ind]
-                print("ix:", ix.shape, ix)
-                ix = ix.reshape(-1,)
-                print("ix reshape:", ix )
                 local_indices = np.append(local_indices, ix)
                 local_expr    = expr[ix,:]
             else:
-                print("Rank {:d}: selected_genes: ".format(self.rank), selected_genes)
                 local_indices = np.append(local_indices, bestbetas_ind)
                 local_expr    = expr[bestbetas_ind,:]                
             # snpgt         = np.ascontiguousarray(slave_geno[j,:][np.newaxis]) # because is only one row, we need to make it properly 1 x nsample -> ascontiguous didn't work for me, more testint needed
             snpgt         = slave_geno[j,:][np.newaxis].copy()
             p, q, mu, s, b = self.basejob(snpgt, local_expr, sb2[j].reshape(-1,), slave_sx2[j].reshape(-1,), maf, getb=True)
-            local_p   = np.append(local_p, p)
-            local_q = np.append(local_q, q)
-            local_mu      = np.append(local_mu, mu)
-            local_s   = np.append(local_s, s)
-            local_b   = np.append(local_b, b)
+            local_p  = np.append(local_p, p)
+            local_q  = np.append(local_q, q)
+            local_mu = np.append(local_mu, mu)
+            local_s  = np.append(local_s, s)
+            local_b  = np.append(local_b, b)
         self.logger.debug("Rank {:d}: Sparse: Computed {:d} pvals and {:s} betas".format(self.rank, len(local_p), str(local_b.shape)))  
         return local_p, local_q, local_mu, local_s, local_b, local_indices
+
 
     def compute_sparse(self, ncutoff = None, nbetas = 1000):
         if self.rank == 0:
@@ -299,12 +294,12 @@ class RevReg:
             split_betas = mpihelper.split_genotype(self._betas[bestsnps_ind,:], self.ncore)
             split_sx2   = mpihelper.split_1darray(self.sigx2[bestsnps_ind], self.ncore)
             snp_per_node = [x.shape[0] for x in split_geno]
+            self.logger.debug("Send SNPs to each node: {:s}".format(str(snp_per_node)))
             if self._selected_genes is not None:
                 print("I have {:s} selected genes".format(str(self._selected_genes.shape)))
                 split_selected_genes = mpihelper.split_genotype(self._selected_genes[bestsnps_ind,:], self.ncore)
             else:
                 split_selected_genes = [None] * self.ncore
-            self.logger.debug("Send SNPs to each node: {:s}".format(str(snp_per_node)))
         else:
             expr         = None
             sb2          = None

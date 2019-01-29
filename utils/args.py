@@ -63,6 +63,7 @@ class Args():
         self.forcetrans  = args.forcetrans
         self.forcecis    = args.forcecis
         self.cismasking  = args.cismasking
+        self.randomize_file = args.randomize_file
 
         self.masking(self.forcecis, self.forcetrans, self.cismasking)
 
@@ -172,6 +173,12 @@ class Args():
                             help='Generate cismasks for the expression matrix for each SNP')
 
         parser.set_defaults(cismasking=False)
+
+        parser.add_argument('--randomize',
+                            type=str,
+                            dest='randomize_file',
+                            metavar='FILE',
+                            help='file with randomized indices')
 
         parser.add_argument('--chrom',
                             dest='chrom',

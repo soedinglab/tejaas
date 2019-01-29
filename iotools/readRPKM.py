@@ -70,7 +70,7 @@ class ReadRPKM:
         donor_list = list()
         with open(self._rpkmfile) as mfile:
             for line in mfile:
-                linesplit = line.strip().split()
+                linesplit = line.strip().split("\t")
                 donor = linesplit[0].strip()
                 expr = np.array([float(x) for x in linesplit[2:]])
                 expr_list.append(expr)
@@ -82,9 +82,9 @@ class ReadRPKM:
         donor_list = list()
         gene_list = list()
         with open(self._rpkmfile) as mfile:
-            donor_list = mfile.readline().strip().split()[1:]
+            donor_list = mfile.readline().strip().split("\t")[1:]
             for line in mfile:
-                linesplit = line.strip().split()
+                linesplit = line.strip().split("\t")
                 gene = linesplit[0].strip()
                 gene_list.append(gene)
                 expr = np.array([float(x) for x in linesplit[1:]])
@@ -98,7 +98,7 @@ class ReadRPKM:
         donor_list = list()
         with open(self._rpkmfile) as mfile:
             for line in mfile:
-                linesplit = line.strip().split()
+                linesplit = line.strip().split("\t")
                 donor = linesplit[1].strip()
                 expr = np.array([float(x) for x in linesplit[2:]])
                 expr_list.append(expr)
@@ -106,6 +106,9 @@ class ReadRPKM:
         expr_list = np.array(expr_list)
         return expr_list, donor_list
 
+    def _normalize_expr(self, Y):
+        newY = (Y - np.mean(Y, axis = 1).reshape(-1, 1)) / np.std(Y, axis = 1).reshape(-1, 1)
+        return newY
 
     def _read_gene_expression(self):
         expr_list = list()
@@ -120,6 +123,8 @@ class ReadRPKM:
         except IOError as err:
             raise IOError("{:s}: {:s}".format(self._rpkmfile, err.strerror))
         expression = np.array(expr_list).transpose()
+        # normexpr = self._normalize_expr(expression)
+        # self._gene_expression = normexpr
         self._gene_expression = expression
         self._donor_ids = donor_list
 
