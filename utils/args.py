@@ -60,14 +60,22 @@ class Args():
         # self.oxf_columns = args.oxf_columns
         self.selected_donors = args.selected_donors
         self.isdosage    = args.isdosage
+        self.gxtrim      = args.gxtrim
         self.forcetrans  = args.forcetrans
         self.forcecis    = args.forcecis
         self.cismasking  = args.cismasking
-        self.randomize_file = args.randomize_file
+
+        self.shuffle        = args.shuffle
+        self.shuffle_file   = args.shuffle_file
+        if self.shuffle_file is not None:
+            self.shuffle = True
 
         self.masking(self.forcecis, self.forcetrans, self.cismasking)
 
-        self.chrom       = int(args.chrom)
+        if args.chrom is not None:
+            self.chrom   = int(args.chrom)
+        else:
+            self.chrom   = None
         self.fam_file    = args.fam_filename
         self.gx_file     = args.gx_filename
         self.gtf_file    = args.gtf_filename
@@ -104,7 +112,7 @@ class Args():
                 self.logger.info('Null Model: {:s}'.format(args.nullmodel))
                 self.logger.info('Sigma_beta: {:g}'.format(args.sigmabeta))
             if self.gxsim:
-                self.logger.info('NO GENE EXPRESSION FILE PROVIDED. SIMULATING GENE EXPRESSION.')
+                self.logger.warn('No gene expression file provided. Simulating gene expression')
 
     def masking(self, forcecis, forcetrans, cismasking):
         if sum([forcecis, forcetrans]) > 1:
@@ -140,45 +148,55 @@ class Args():
                             action='store_true',
                             help='Read dosages')
 
+        parser.add_argument('--no-dosage',
+                            dest='isdosage',
+                            action='store_false',
+                            help='Do not read dosages')
+
+        parser.set_defaults(isdosage=False)
+
+        parser.add_argument('--trim',
+                            dest='gxtrim',
+                            action='store_true',
+                            help='Whether to trim version number from gene Ensembl IDs')
+
+        parser.add_argument('--shuffle',
+                            dest='shuffle',
+                            action='store_true',
+                            help='Shuffle the genotypes randomly')
+
+        parser.add_argument('--shuffle-with',
+                            type=str,
+                            dest='shuffle_file',
+                            metavar='FILE',
+                            help='Shuffle the genotypes using the supplied donor IDs file')
+
         parser.add_argument('--selected-donors',
                             type=str,
                             dest='selected_donors',
                             metavar='FILE',
                             help='List of donors ids to select')
 
-        parser.add_argument('--no-dosage',
-                            dest='isdosage',
-                            action='store_false',
-                            help= 'genotype freqs')
-
-        parser.set_defaults(isdosage=True)
-
         parser.add_argument('--force-trans',
                             dest='forcetrans',
                             action='store_true',
                             help='Select only trans SNPs-Genes pairs not in the same Chromosome')
 
-        parser.set_defaults(forcetrans=False)
+        # parser.set_defaults(forcetrans=False)
 
         parser.add_argument('--force-cis',
                             dest='forcecis',
                             action='store_true',
                             help='Select only cis SNPs-Genes pairs in the same Chromosome')
 
-        parser.set_defaults(forcecis=False)
+        # parser.set_defaults(forcecis=False)
 
         parser.add_argument('--cismask',
                             dest='cismasking',
                             action='store_true',
                             help='Generate cismasks for the expression matrix for each SNP')
 
-        parser.set_defaults(cismasking=False)
-
-        parser.add_argument('--randomize',
-                            type=str,
-                            dest='randomize_file',
-                            metavar='FILE',
-                            help='file with randomized indices')
+        # parser.set_defaults(cismasking=False)
 
         parser.add_argument('--chrom',
                             dest='chrom',

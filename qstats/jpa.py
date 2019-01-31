@@ -8,7 +8,7 @@ from utils.logs import MyLogger
 
 class JPA:
 
-    def __init__(self, x, y, comm, rank, ncore, qcalc):
+    def __init__(self, x, y, comm, rank, ncore, qcalc, masks):
         self.gt = x
         self.gx = y
         self._pvals = None
@@ -18,6 +18,8 @@ class JPA:
         self.ncore = ncore
         self.qcalc = qcalc
         self.mpi = False
+        self.masks = masks
+        self.usemask = True if masks is not None else False
         if self.ncore > 1:
             self.mpi = True
         self.logger = MyLogger(__name__)
@@ -35,17 +37,31 @@ class JPA:
     # def scores(self, scores):
     #     self._qscores = scores
 
-    def apply_mask(self, masks, snpmasks):
-        newqscores = list()
-        for j, mask in enumerate(masks):
-            for i in snpmasks[j]:
-                pvals_crop = np.delete(self.pvals[i,:], mask, axis = 0)
-                if len(mask) > 0:
-                    self._pvals[i,:][np.array(mask)] = 1
-                # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(self.pvals[i,:])))
-                newqscore = self.jpascore(pvals_crop)
-                newqscores.append(newqscore)
-        self._qscores = np.array(newqscores)
+    def masked_jpascore(self, pvals, mask):
+        usedgenes = np.ones_like(pvals, dtype=np.bool)
+        if mask.shape[0] != 0: usedgenes[mask] = False
+        res = self.jpascore(pvals[usedgenes])
+        return res
+
+    # def apply_mask(self, cismasks, snpblocks):
+    #     # cismasks:  each list element is a mask for cis genes
+    #     # snpblocks: each list element is a list of snps corresponding to the mask
+    #     newqscores = list()
+    #     ngene = self.gx.shape[0]
+    #     for j, mask in enumerate(cismasks):
+    #         for i in snpblocks[j]:
+    #             pvals = self.pvals[i*ngene:(i+1)*ngene]
+    #             allgenes = np.ones(ngene, dtype=bool)
+    #             if mask.shape[0] != 0: allgenes[mask] = False
+    #             masked_pvals = pvals[allgenes]
+    #             newqscore = self.jpascore(masked_pvals)
+    #             # pvals_crop = np.delete(self.pvals[i,:], mask, axis = 0)
+    #             # if len(mask) > 0:
+    #             #     self._pvals[i,:][np.array(mask)] = 1
+    #             # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(self.pvals[i,:])))
+    #             # newqscore = self.jpascore(pvals_crop)
+    #             newqscores.append(newqscore)
+    #     self._qscores = np.array(newqscores)
 
     def jpascore(self, pvals):
         p = np.sort(pvals)
@@ -81,85 +97,79 @@ class JPA:
         fstat = np.zeros(nsnps * ngene)
         success = cfstat(x, y, nsnps, ngene, nsample, fstat)
         res = 1 - stats.f.cdf(fstat, 1, nsample-2)
-        res = res.reshape(nsnps, ngene)
-        pvals = np.zeros((nrow, ngene), dtype=np.float64)
-        pvals[:nsnps, :] = res
-        return pvals
+        return res
 
 
-    def slavejob(self, geno, expr, nmax, jpa = True):
+    def slavejob(self, geno, expr, nmax, offset, masks, jpa = True, usemask = False):
+        self.logger.debug('Rank {:d} calculating SNPs {:d} to {:d}'.format(self.rank, offset+1, nmax + offset))
         nsnps = geno.shape[0]
+        ngene = expr.shape[0]
         pvals = self.clinreg(geno, expr, nmax)
         if jpa:
-            qscores = np.array([self.jpascore(pvals[i,:]) for i in range(nsnps)])
+            # calculate JPA for each SNP (using ngene pvals)
+            if usemask:
+                qscores = np.array([self.masked_jpascore(pvals[i*ngene : (i+1)*ngene], masks[i]) for i in range(nsnps)])
+            else:
+                qscores = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(nsnps)])
         else:
             qscores = np.zeros(nsnps)
-        # return pvals, qscores
-        return pvals.reshape(-1,), qscores
+        return pvals, qscores
 
 
     def mpicompute(self):
         if self.rank == 0:
             # this is the master
             # create a list of genotypes for sending to your slaves
-            geno = mpihelper.split_genotype(self.gt, self.ncore)
+            geno, offset = mpihelper.split_genotype(self.gt, self.ncore)
             expr = self.gx
-            snp_per_node = [x.shape[0] for x in geno]
-            # nmax = max(snp_per_node)
+            nsnp = [x.shape[0] for x in geno]
+            gmasks = mpihelper.split_genemasks(self.masks, nsnp, offset)
         else:
             geno = None
             expr = None
-            # nmax = None
-            snp_per_node = None
+            nsnp = None
+            offset = None
+            gmasks = None
+            slave_geno = None
+            slave_expr = None
+            slave_nsnp = None
+            slave_offs = None
+            slave_gmasks = None
         
         slave_geno = self.comm.scatter(geno, root = 0)
-        expr = self.comm.bcast(expr, root = 0)
-        nmax = self.comm.scatter(snp_per_node, root = 0)
-        # nmax = self.comm.bcast(nmax, root = 0)
+        slave_expr = self.comm.bcast(expr, root = 0)
+        slave_nsnp = self.comm.scatter(nsnp, root = 0)
+        slave_offs = self.comm.scatter(offset, root = 0)
+        if self.usemask:
+            slave_gmasks = self.comm.scatter(gmasks, root = 0)
+        else:
+            slave_gmasks = self.comm.bcast(gmasks, root = 0)
         self.comm.barrier()
         
         # ==================================
-        # Data sent. Now do the calculations
+        # Data sent. Do the calculations
         # ==================================
-        if self.qcalc:
-            pvals, qscores = self.slavejob(slave_geno, expr, nmax, jpa = True)
-        else:
-            pvals, qscores = self.slavejob(slave_geno, expr, nmax, jpa = False)
+        pvals, qscores = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs, slave_gmasks, jpa = self.qcalc, usemask = self.usemask)
 
-
+        # ==================================
+        # Collect the results
+        # ==================================
         recvbuf = None
         if self.rank == 0:
-            self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(["{:d}".format(x) for x in snp_per_node])) #print (recvbuf.shape)
-            # recvbuf = np.zeros([self.gt.shape[0], self.gx.shape[1]], dtype=np.float64)
-            columns = self.gx.shape[0]
-            flat_sizes = np.array([rows * columns for rows in snp_per_node])
-            total_rows = sum(np.array(snp_per_node))
+            self.logger.debug("Number of SNPs sent to each slave: " + ", ".join(["{:d}".format(x) for x in nsnp]))
+            ngene = self.gx.shape[0]
+            flat_sizes = np.array([n * ngene for n in nsnp])
             recvbuf = np.zeros(sum(flat_sizes), dtype=np.float64)
         else:
             flat_sizes = None
-
-
-        # self.comm.Gather(pvals, recvbuf, root=0)
-        
         self.comm.Gatherv(sendbuf=pvals, recvbuf=(recvbuf, flat_sizes), root = 0)
 
         if self.rank == 0:
-            newarr = recvbuf.reshape(total_rows, columns)
-            self._pvals = newarr
+            self._pvals = recvbuf.reshape(sum(nsnp), ngene)
 
         qscores = self.comm.gather(qscores, root = 0)
 
         if self.rank == 0:
-            # self.logger.debug("Shape of gathered pvals array: " + " x ".join(str(x) for x in recvbuf.shape)) #print (recvbuf.shape)
-            # self.logger.debug("Number of SNPs: {:d}, Sum of rows in pvals array: {:d}".format(self.gt.shape[0], recvbuf.shape[0] * recvbuf.shape[1]))
-            #self.logger.debug("Last 10 unused pvals are " + " ".join("{:g}".format(x) for x in recvbuf[0][-1, -10:]))
-            # self._pvals = np.zeros((self.gt.shape[0], self.gx.shape[0]))
-            # offset = 0
-            # for i in range(self.ncore):
-            #     nsnp = snp_per_node[i]
-            #     self._pvals[offset:offset+nsnp, :] = recvbuf[i][:nsnp, :]
-            #     self.logger.debug("Adding next {:d} SNPs from index {:d}".format(nsnp, offset))
-            #     offset += nsnp
             self._qscores = np.concatenate(qscores)
         else:
             assert qscores is None
@@ -172,7 +182,7 @@ class JPA:
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.slavejob(self.gt, self.gx, self.gt.shape[0])
-            self._pvals = pvals
+            pvals, qscores = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, jpa = self.qcalc, usemask = self.usemask)
+            self._pvals = pvals.reshape(self.gt.shape[0], self.gx.shape[0])
             self._qscores = qscores
         return

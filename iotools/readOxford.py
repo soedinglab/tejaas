@@ -87,6 +87,8 @@ class ReadOxford:
         with open(self._samplefile, 'r') as samfile:
             sample = 0
             samplenames = list()
+            next(samfile)
+            next(samfile)
             for line in samfile:
                 if re.search('^#', line):
                     continue
@@ -153,6 +155,6 @@ class ReadOxford:
         self._read_genotype_once = True
         self._read_samples() # otherwise, self._nsample is not set
         allsnps, dosage = self._read_dosages()
-        self.logger.info("Completed reading {:d} SNPs of {:d} samples.".format(self._nloci, self._nsample))
+        self.logger.info("Found {:d} SNPs of {:d} samples.".format(self._nloci, self._nsample))
         self._dosage = dosage
         self._snpinfo = allsnps

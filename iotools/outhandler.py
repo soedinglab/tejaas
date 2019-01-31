@@ -2,23 +2,29 @@ import numpy as np
 import itertools
 import os
 
+from utils.logs import MyLogger
+logger = MyLogger(__name__)
+
 class Outhandler:
 
     def __init__(self, args, snpinfo, geneinfo, selected = None):
         self.snpinfo  = snpinfo
         self.geneinfo = geneinfo
         self.args = args
-        self.selected = selected.reshape(-1,)
-        if len(self.selected):
+        self.selected = selected
+        if self.selected is not None and len(self.selected):
+            self.selected = selected.reshape(-1,)
             self.snpinfo = [self.snpinfo[int(i)] for i in self.selected]
 
-        if not os.path.exists(os.path.dirname(self.args.outprefix)):
-            os.makedirs(os.path.dirname(self.args.outprefix))
+        dirname = os.path.dirname(os.path.realpath(self.args.outprefix))
+
+        logger.debug('Writing result in: {:s}'.format(dirname))
+        if not os.path.exists(dirname): os.makedirs(dirname)
 
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
         scores = jpa.scores
-        if len(self.selected):
+        if self.selected is not None and len(self.selected):
             scores = jpa.scores[self.selected]
         with open(fname, "w") as f:
             f.write("snpid\tjpascore\n")
@@ -36,7 +42,7 @@ class Outhandler:
         select = np.where(rr.pvals < self.args.psnpcut)[0]
         fname = self.args.outprefix + "_gene_snp_list.txt"
         pvals = jpa.pvals
-        if len(self.selected):
+        if self.selected is not None and len(self.selected):
             pvals = jpa.pvals[self.selected]
         with open(fname, "w") as f:
             f.write("geneid\tsnpid\tpval\n")

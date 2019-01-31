@@ -37,9 +37,7 @@ def load(snpinfo, nullmodel, maf_file):
                     logger.debug("Alleles do not match for {:s}".format(x.varid))
             except:
                 nmafx += 1
-                #logger.warn("No MAF found for SNP {:s}".format(x.varid))
                 pass
-            #logger.debug("{:s}\t{:g}\t{:g}".format(x.varid, x.maf, maf[i]))
         logger.debug("No MAF found for {:d} SNPs".format(nmafx))
         logger.debug("Allele mismatch for {:d} SNPs".format(nallx))
         logger.debug("MAF updated for {:d} SNPs".format(nmafu))
