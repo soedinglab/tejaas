@@ -46,6 +46,7 @@ void my_cdfnorm( double* X, double* P) {
 }
 #endif
 
+#define NO_NULL 0
 #define MAF_NULL 1
 #define PERM_NULL 2
 
@@ -140,6 +141,15 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 	for ( int i = 0; i < nsnp; i++ ) {
 
+		if (null == NO_NULL ) {
+			// duplicated from PERM_NULL, what should we do by default?
+			success = getW (U, SM, W, nsample, nS, i*nS);
+			if ( success == false ) goto cleanup;
+			MUQ[i] = -1.0;
+			SIGQ[i] = -1.0;
+			P[i] = 1.0;
+		}
+
 		if (null == PERM_NULL) {                        /* gets W for every SNP if using permutation null, because sigmax2 is not fixed */
 			// Here probably add some check when G < N
 		    // and also multiply by 1/SX2[i] because it is not fixed here
@@ -162,6 +172,8 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 			SIGQ[i] = sqrt( sig2Qmaf + (gt4maf(MAF[i]) - 3) * sumW2nn );
 			P[i] = cdf_norm (Q[i], MUQ[i], SIGQ[i] ); //qnull_maf(Q[i], MUQ[i], SIGQ[i]);
 		}
+
+
 
 	}
 

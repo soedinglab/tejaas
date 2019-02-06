@@ -117,37 +117,38 @@ if args.jpa and args.rr:
 
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
-    # This has to be fixed and properly merged
 
-    # if args.nullmodel == 'perm':
-    #     rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp, outdir = args.outprefix)
-    #     rr.compute()
-    #     if rank == 0:
-    #         rr.write_rr_out("it0", snpinfo, geneinfo)
-    #     # rr.compute_sparse(ncutoff = 1000, nbetas = 1000)
-    #     # if rank == 0:
-    #     #     rr.write_rr_out("it1", snpinfo, geneinfo)
-    #     # rr.compute_sparse(ncutoff = 100, nbetas = 100)
-    #     # if rank == 0:
-    #     #     rr.write_rr_out("it2", snpinfo, geneinfo)
-
+    if rank == 0: 
+        if args.outprefix is None:
+            args.outprefix = "out"    
+        ohandle = Outhandler(args, snpinfo, geneinfo)
+    
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
-    rr.compute()
+    rr.compute(get_betas = True)
+
+    if rank == 0:
+        ohandle.write_rr_out(jpa, rr, prefix = "_it0")
+
+    rr.sb2 = sigbeta2 = np.repeat(0.1 ** 2, gtnorm.shape[0])
+    rr.compute_sparse(get_betas = True)
+
+    if rank == 0:
+        ohandle.write_rr_out(jpa, rr, prefix = "_it1")
 
 if rank == 0: rr_time = time.time()
     
 # Output handling only from master node // move it to module
-if rank == 0: 
-    if args.outprefix is None:
-        args.outprefix = "out"    
-    ohandle = Outhandler(args, snpinfo, geneinfo)
-    if args.jpa:
-        ohandle.write_jpa_out(jpa)
-    if args.rr:
-        ohandle.write_rr_out(jpa, rr)
+# if rank == 0: 
+#     if args.outprefix is None:
+#         args.outprefix = "out"    
+#     ohandle = Outhandler(args, snpinfo, geneinfo)
+#     if args.jpa:
+#         ohandle.write_jpa_out(jpa)
+#     if args.rr:
+#         ohandle.write_rr_out(jpa, rr)
 
 if rank == 0: write_time = time.time()
 

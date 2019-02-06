@@ -65,18 +65,6 @@ class Data():
     def cismasks_list(self):
         return self._cismasklist
 
-    # @property
-    # def snp_cismaskcomp(self):
-    #    return self._snps_masks_lists
-
-    # @property
-    # def cismasks(self):
-    #    return self._compressed_masks
-
-    # @property
-    # def geneinfo_dict(self):
-    #     return self._geneinfo_dict
-
     @property
     def expression(self):
         return self._expr
@@ -134,110 +122,6 @@ class Data():
                 prev_mask = mask
                 appendmask = False
         return cismasks
-
-    # @timeit
-    # def compress_cismasklist_old(self, genemasks):
-    #     cismasks = list()
-    #     appendmask = False
-    #     setprev = False
-    #     voidlist = list()
-    #     snplist = list()
-    #     for i, mask in enumerate(genemasks):
-    #         if mask.shape[0] == 0:
-    #             voidlist.append(i)
-    #             voidmask = mask
-    #         else:
-    #             if not setprev: 
-    #                 prev_mask = mask
-    #                 setprev = True
-    #             if np.all(mask == prev_mask):
-    #                 snplist.append(i)
-    #             else:
-    #                 appendmask = True
-
-    #         if i == len(genemasks) - 1: appendmask = True # no more masks to process
-
-    #         if appendmask:
-    #             thismask = CisMask(rmv_id = prev_mask, apply2 = snplist)
-    #             cismasks.append(thismask)
-    #             snplist = list([i])
-    #             prev_mask = mask
-    #             appendmask = False
-
-    #     if len(voidlist) > 0: cismasks.append(CisMask(rmv_id = voidmask, apply2 = voidlist))
-    #     return cismasks
-                
-
-    ## @timeit
-    ## def get_cismaskcomp(self, snpinfo, gene_info, chrom):
-    ##     # gene_info MUST be sorted as in the gene expression matrix
-    ##     # chrom   = snpinfo[0].chrom
-    ##     window  = 1e6
-
-    ##     chr_genes = list()
-    ##     chr_ix_genes = list()
-    ##     for i,g in enumerate(gene_info):
-    ##         if g.chrom == chrom:
-    ##             chr_genes.append(g)
-    ##             chr_ix_genes.append(i)
-    ##     chr_ix_genes = np.array(chr_ix_genes)
-    ##     
-    ##     cis_masks = list()
-    ##     prev_start = 0
-
-    ##     for s in snpinfo:
-    ##         #here starts for each snp
-    ##         pos     = s.bp_pos
-    ##         w_start = pos - window
-    ##         w_end   = pos + window
-    ##         cis_genes_ix = list()
-    ##         for i, g in enumerate(chr_genes[prev_start:]):
-    ##             if g.start >= w_start and g.start <= w_end:
-    ##                 # cis_genes_ix.append([prev_start + i, g])
-    ##                 cis_genes_ix.append(prev_start + i)
-    ##             elif g.end >= w_start and g.end <= w_end:
-    ##                 # cis_genes_ix.append([prev_start + i, g])
-    ##                 cis_genes_ix.append(prev_start + i)
-    ##             if g.start > w_end:
-    ##                 break
-    ##         cis_genes_ix = np.array(cis_genes_ix)
-    ##         if len(cis_genes_ix) > 0:
-    ##             gx_matrix_ix = chr_ix_genes[cis_genes_ix]
-    ##             if len(gx_matrix_ix) != len(cis_genes_ix):
-    ##                 raise
-    ##             if prev_start != cis_genes_ix[0]:
-    ##                 prev_start = cis_genes_ix[0]
-    ##         else:
-    ##             # print(pos, "empty cis")
-    ##             gx_matrix_ix = np.array([])
-    ##         cis_masks.append(gx_matrix_ix)
-    ##     return cis_masks
-
-    ## @timeit
-    ## def compress_cis_masks(self, cis_masks):
-    ##     snps_masks_lists = [] # contains lists of snp indices for each mask.
-    ##                           # i.e snps_masks_lists[0] is a list with all the snps 
-    ##                           # that have the same mask: compressed_masks[0]
-    ##     compressed_snps  = [] # temp list that will be used to build snps_masks_lists     
-    ##     compressed_masks = [] # contains all unique masks
-
-    ##     prev_mask = cis_masks[0]
-    ##     compressed_snps.append(0)
-    ##     for i in range(1, len(cis_masks)):
-    ##         # if masks are the same, add the snp index
-    ##         if (len(cis_masks[i]) == len(prev_mask)) and all(cis_masks[i] == prev_mask):
-    ##             compressed_snps.append(i)
-    ##         else:
-    ##             # compressed_masks.append(cis_masks[i])
-    ##             compressed_masks.append(prev_mask)
-    ##             prev_mask = cis_masks[i]
-    ##             snps_masks_lists.append(compressed_snps)
-    ##             compressed_snps = []
-    ##             compressed_snps.append(i)
-    ##     # add the last set of snps for the final mask
-    ##     snps_masks_lists.append(compressed_snps)
-    ##     compressed_masks.append(cis_masks[-1])
-    ##     return snps_masks_lists, compressed_masks
 
     def select_donors(self, vcf_donors, expr_donors):
         ''' Make sure that donors are in the same order for both expression and genotype

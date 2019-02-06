@@ -24,6 +24,10 @@ class RevReg:
         self.null = null
         self.maf = maf
         self.mpi = False
+        self.masks = masks
+        self.usemask = False
+        if self.masks is not None:
+            self.usemask = True
         if self.ncore > 1:
             self.mpi = True
         self._pvals = None
@@ -34,11 +38,9 @@ class RevReg:
         self._selected_snps = []
         self._selected_genes = None
         self.outdir = outdir
-        self._cismasks = []
-        self._snps_cismasks = []
-        if len(masks) > 0:
-            self._cismasks = [x.rmv_id for x in masks]
-            self._snps_cismasks = [x.apply2 for x in masks]
+        # if len(masks) > 0:
+        #     self._cismasks = [x.rmv_id for x in masks]
+        #     self._snps_cismasks = [x.apply2 for x in masks]
 
         if self.null == 'perm':
             self.sigx2 = np.var(self.gt, axis = 1)
@@ -222,7 +224,6 @@ class RevReg:
             assert apvals   is None
             assert amu      is None
             assert asigma   is None
-            newarr = None
         return True
 
     def slavejob_sparse(self, slave_geno, expr, sb2, slave_sx2, maf, slave_betas, nbetas, selected_genes = None):

@@ -59,8 +59,13 @@ def maf_null(gt, gx, sb2, sx2, maf):
     p, R, mu, sigma = crevreg(gt, gx, sb2, 1, maf)
     return p, R, mu, sigma
 
-
 def perm_null(gt, gx, sb2, sx2):
     maf = np.zeros(gt.shape[0])
     p, R, mu, sigma = crevreg(gt, gx, sb2, 2, maf)
     return p, R, mu, sigma
+
+def no_null(gt, gx, sb2, sx2):
+    maf = np.zeros(gt.shape[0])
+    p, R, mu, sigma = crevreg(gt, gx, sb2, 0, maf)
+    return p, R, mu, sigma
+
