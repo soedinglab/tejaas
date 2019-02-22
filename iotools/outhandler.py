@@ -24,24 +24,24 @@ class Outhandler:
                 f.write("{:s}\t{:g}\n".format(snp.varid, scores[i]))
 
 
-    def write_rr_out(self, jpa, rr, prefix = ""):
+    def write_rr_out(self, jpa, rr, prefix = "", selected_snps = [], selected_genes = [], write_betas = False):
         mysnpinfo = self.snpinfo
-        if len(rr.selected_snps):
-            mysnpinfo = [self.snpinfo[int(i)] for i in rr.selected_snps]
+        if len(selected_snps):
+            mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
         fname = self.args.outprefix + "_rr" + prefix + ".txt"
         with open(fname, "w") as f:
             f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P'))
             for i, x in enumerate(mysnpinfo):
                 f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
-        if rr.betas is not None:
+        if rr.betas is not None and write_betas:
             np.savetxt(self.args.outprefix + "_betas" + prefix + ".txt", rr.betas, fmt='%1.4e')
         select = np.where(rr.pvals < self.args.psnpcut)[0]
         fname = self.args.outprefix + "_gene_snp_list" + prefix + ".txt"
         pvals = jpa.pvals
 
-        if rr.selected_genes is not None:
-            np.savetxt(self.args.outprefix + "_selected_genes" + prefix + ".txt", rr.selected_genes, fmt='%i')
-            pvals = jpa.pvals[rr.selected_snps]
+        if selected_genes is not None:
+            np.savetxt(self.args.outprefix + "_selected_genes" + prefix + ".txt", selected_genes, fmt='%i')
+            pvals = jpa.pvals[selected_snps]
 
         with open(fname, "w") as f:
             f.write("geneid\tsnpid\tpval\n")

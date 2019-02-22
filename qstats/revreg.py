@@ -10,6 +10,8 @@ from qstats import crrstat
 from utils.logs import MyLogger
 import time
 from statsmodels.distributions.empirical_distribution import ECDF
+from scipy.stats import expon
+
 
 class RevReg:
 
@@ -37,6 +39,7 @@ class RevReg:
         self._betas = None
         self._selected_snps = np.array([])
         self._selected_genes = None
+        self._null_qscores = None
 
         if self.null == 'perm' or self.null == "no_null":
             self.sigx2 = np.var(self.gt, axis = 1)
@@ -83,6 +86,7 @@ class RevReg:
 
     def slavejob(self, gt, gx, sb2, sx2, maf, masks, start, end, usemask, get_betas = False):
         if usemask:
+            if len(masks) == 0: return [], [], [], [], np.array([])
             startsnp = min([min(x.apply2) for x in masks])
             endsnp = max([max(x.apply2) for x in masks])
             totsnp = sum(x.nsnp for x in masks)
@@ -136,9 +140,28 @@ class RevReg:
         #self.logger.debug("Reporting from node {:d}. Sigma = ".format(self.rank) + np.array2string(sig) + "\n" )
         return p, q, mu, sig, b
 
-    def p_qscore(self, score, random_scores):
-        ecdf = ECDF(random_scores)
-        res = 1 - ecdf(score)
+    # def p_qscore(self, score, random_scores):
+    #     ecdf = ECDF(random_scores)
+    #     res = 1 - ecdf(score)
+    #     return res
+
+    def fit_exp(self, nulldistrib):
+        halfnull = nulldistrib[nulldistrib >= np.mean(nulldistrib)]
+        loc, scale = expon.fit(halfnull)
+        lambd = 1 / scale
+        return lambd
+
+    def p_qscore(self, score, random_scores, p0 = 0.001):
+        n1 = int(p0 * len(random_scores))
+        maxscore = random_scores[np.argsort(-random_scores)][n1]
+        if score > maxscore:
+            lambd = self.fit_exp(random_scores)
+            # qcdf = 1.0 - np.exp(- lambd * score) # cdf of an exponential distribution
+            # res = 1.0 - qcdf
+            res = np.exp(- lambd * score)
+        else:
+            ecdf = ECDF(random_scores)
+            res = 1.0 - ecdf(score)
         return res
 
     def basejob_sparse(self, gt, gx, sb2, sx2, maf, get_betas):
@@ -151,16 +174,7 @@ class RevReg:
         if self.null == 'perm':
             p, q, mu, sig = crrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
             qarray = np.array([])
-            self.logger.debug("Rank {:d}: Sparse: {:f}, {:f}, {:f}, {:f}".format(self.rank, p[0], q[0], mu[0], sig[0]))
-            for i in range(1000):
-                np.random.shuffle(slv_gx.T)
-                _p, _q, _mu, _sig = crrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
-                qarray = np.append(qarray, _q)
-            p   = self.p_qscore(q, qarray)
-            mu  = np.mean(qarray)
-            sig = np.std(qarray)
-            self.logger.debug("Rank {:d}: Sparse: newpval = {:f}".format(self.rank, p[0]))
-            self.logger.debug("Rank {:d}: Sparse: took {:g} seconds for shuffling {:s} snps".format(self.rank, time.time() - stime, str(slv_gt.shape)))
+            # self.logger.debug("Rank {:d}: Sparse: p:{:f}, q:{:f}, mu:{:f}, sig:{:f}".format(self.rank, p[0], q[0], mu[0], sig[0]))
         elif self.null == 'maf':
             slv_maf = maf
             p, q, mu, sig = crrstat.maf_null(slv_gt, slv_gx, slv_sb2, slv_sx2, slv_maf)
@@ -169,7 +183,6 @@ class RevReg:
         #self.logger.debug("Reporting from node {:d}. Sigma = ".format(self.rank) + np.array2string(sig) + "\n" )
         return p, q, mu, sig, b
 
-    # def slavejob_sparse(self, slave_geno, expr, sb2, slave_sx2, maf, slave_betas, nbetas, selected_genes = None):
     def slavejob_sparse(self, gt, gx, sb2, sx2, maf, gene_indices, start, end, get_betas):
         self.logger.debug("Rank {:d}: Using {:d} SNPs [{:d} to {:d}]".format(self.rank, end - start, start, end))
         p  = np.array([])
@@ -190,67 +203,41 @@ class RevReg:
         self.logger.debug("Rank {:d} Sparse: Computed {:d} pvals and {:s} betas in {:g} seconds".format(self.rank, len(p), str(b.shape), time.time() - stime))
         return p, q, mu, s, b
 
-    # def write_rr_out(self, outdir, suffix, snpinfo, geneinfo):
-    #     mysnpinfo = snpinfo
-    #     if len(self._selected_snps):
-    #         mysnpinfo = [snpinfo[int(i)] for i in self._selected_snps]
-    #     fname = outdir + "_rr_" + suffix + ".txt"
-    #     with open(fname, "w") as f:
-    #         f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P'))
-    #         print("write rr out: ", len(mysnpinfo), len(self.pvals))
-    #         for i, x in enumerate(mysnpinfo):
-    #             f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, self.scores[i], self.null_mu[i], self.null_sigma[i], self.pvals[i]))
-    #     # np.savetxt(outdir + "_betas_" + suffix + ".txt", self.betas, fmt='%1.4e')
-    #     if self._selected_genes is not None:
-    #         np.savetxt(outdir + "_selected_genes_" + suffix + ".txt", self._selected_genes, fmt='%i')
-
-    def mpicompute_sparse(self, get_betas = False):
+    # qnull should contain an array of null sparse Qscores (Qnull + sparsity round)
+    # qnull should be None for the sparsisty round of qmodel calculation
+    def mpicompute_sparse(self, gene_indices, qnull, get_betas = False):
         gt    = None
         expr  = None
         sx2   = None
         sb2   = None
         maf   = None
-        gene_indices = None
+        # gene_indices = None
         pstart = None
         pend = None
-        finalize = False
         if self.rank == 0:
-            # get best SNPs
-            best_snp_indices = self.select_best_SNPs()
-            if len(best_snp_indices) > 0:
-                self._selected_snps = best_snp_indices
-                # get best beta values for EACH snp
-                gene_indices = self.select_best_genes(self.betas[best_snp_indices,:], n=1000)
-                self._selected_genes = gene_indices
-                gt   = self.gt[best_snp_indices,:]
-                expr = self.gx
-                sx2  = self.sigx2[best_snp_indices]
-                sb2  = self.sigbeta2[best_snp_indices]
-                maf  = self.maf
-                pstart, pend = mpihelper.split_n(gene_indices.shape[0], self.ncore)
-            else:
-                self.logger.info("No significant SNPs available. No calculations to make.")
-                finalize = True
-
-        finalize = self.comm.bcast(finalize, root = 0)
-        if finalize:
-            return
+            # self._selected_genes = gene_indices
+            gt   = self.gt
+            expr = self.gx
+            sx2  = self.sigx2
+            sb2  = self.sigbeta2
+            maf  = self.maf
+            pstart, pend = mpihelper.split_n(gene_indices.shape[0], self.ncore)
 
         gt   = self.comm.bcast(gt, root = 0)
         expr = self.comm.bcast(expr, root = 0)
         sb2  = self.comm.bcast(sb2, root = 0)
-        maf  = self.comm.bcast(maf,  root = 0)
         sx2  = self.comm.bcast(sx2, root = 0)
-        gene_indices = self.comm.bcast(gene_indices, root = 0)
+        maf  = self.comm.bcast(maf,  root = 0)
         pstart = self.comm.scatter(pstart, root = 0)
         pend   = self.comm.scatter(pend, root = 0)
+        # gene_indices = self.comm.bcast(gene_indices, root = 0)
         self.comm.barrier()
 
         ### Start sparse iteration of RR for each SNP ###
         self.logger.debug("Rank {:d}: Sparse: Calculating RR iteration over best {:d} genes (biggest beta values)".format(self.rank, gene_indices.shape[1]))
         self.logger.debug("Rank {:d}: Sparse: I have {:s} gene_indices, {:d} snps, geno is {:s} and {:s} sx2.".format(self.rank, str(gene_indices.shape), gt.shape[0], str(gt.shape), str(sx2.shape)))
 
-        pvals, qscores, mu, sigma, betas = self.slavejob_sparse(gt, expr, sb2, sx2, maf, gene_indices, pstart, pend, get_betas)  
+        pvals, qscores, mu, sigma, betas = self.slavejob_sparse(gt, expr, sb2, sx2, maf, gene_indices, pstart, pend, get_betas)
 
         pvals   = self.comm.gather(pvals,   root = 0)
         qscores = self.comm.gather(qscores, root = 0)
@@ -273,9 +260,25 @@ class RevReg:
             self._qscores = np.concatenate(qscores)
             self._mu      = np.concatenate(mu)
             self._sigma   = np.concatenate(sigma)
+
             if get_betas:
                 self._betas   = recvbuf.reshape(gene_indices.shape)
                 self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues, {:s} betas, and {:s} selected genes".format(self.rank, len(self._pvals), str(self._betas.shape), str(gene_indices.shape)))
+
+            if qnull is not None:
+                newpvals = np.array([])
+                newmu = np.array([])
+                newsig = np.array([])
+                print(len(self._qscores))
+                print(qnull.shape)
+                for i in range(qnull.shape[1]): # should be same dim as len(qscores)
+                    qarray   = qnull[:,i]
+                    newpvals = np.append(newpvals, self.p_qscore(self._qscores[i], qarray))
+                    newmu    = np.append( newmu, np.mean(qarray))
+                    newsig   = np.append( newsig, np.std(qarray))
+                self._mu = newmu
+                self._sigma = newsig
+                self._pvals = newpvals
         else:
             assert qscores is None
             assert pvals   is None
@@ -323,6 +326,7 @@ class RevReg:
         geno = self.comm.bcast(geno, root = 0)
         if self.usemask:
             gmasks = self.comm.scatter(gmasks, root = 0)
+            print("RANK: ", self.rank, gmasks)
         else:
             pstart = self.comm.scatter(pstart, root = 0)
             pend = self.comm.scatter(pend, root = 0)
@@ -343,6 +347,7 @@ class RevReg:
             betalength = len(betas)
             self.comm.barrier()   # is it necessary?
             received_counts = self.comm.gather(betalength)
+            print("received_counts ", received_counts)
             if self.rank == 0:
                 recvbuf = np.zeros(np.sum(received_counts), dtype=np.float64)
             self.comm.Gatherv(sendbuf=betas, recvbuf=(recvbuf, received_counts), root = 0)
@@ -375,35 +380,34 @@ class RevReg:
                 self._betas = self._betas.reshape(self.gt.shape[0], self.gx.shape[0])
         return
 
-    def compute_sparse(self, get_betas = False):
+    def prune_masks(self, masks, snpi):
+        selected_masks = [x for x in masks if len(list(set(x.apply2) & set(snpi)))]
+        newmasks = []
+        for m in selected_masks:
+            pruned_apply2 = sorted(list(set(snpi) & set(m.apply2)))
+            newmasks.append(m._replace(apply2=[snpi.index(x) for x in pruned_apply2]))
+        return newmasks
+
+    def compute_sparse(self, gene_indices, qnull = None, get_betas = False):
         if self.mpi:
-            self.mpicompute_sparse(get_betas)
+            self.mpicompute_sparse(gene_indices, qnull, get_betas)
         else:
             start = 0
-            end = self.gt.shape[0]
-            best_snp_indices = self.select_best_SNPs()
-            if len(best_snp_indices) == 0:
-                self.logger.info("No significant SNPs available. No calculations to make.")
-            else:
-                self._selected_snps = best_snp_indices
-                # get best beta values for EACH snp
-                gene_indices = self.select_best_genes(self.betas[best_snp_indices,:], n=5000)
-                self._selected_genes = gene_indices
+            end  = self.gt.shape[0]
+            gt   = self.gt
+            expr = self.gx
+            sx2  = self.sigx2
+            sb2  = self.sigbeta2
+            maf  = self.maf
 
-                gt   = self.gt[best_snp_indices,:]
-                expr = self.gx
-                sx2  = self.sigx2[best_snp_indices]
-                sb2  = self.sigbeta2[best_snp_indices]
-                maf  = self.maf
+            ### Start sparse iteration of RR for each SNP ###
+            self.logger.debug("Sparse: Calculating RR iteration over best {:d} genes (biggest beta values)".format(gene_indices.shape[1]))
+            self.logger.debug("Sparse: I have {:s} gene_indices, {:d} snps, geno is {:s} and {:s} sx2.".format(str(gene_indices.shape), gt.shape[0], str(gt.shape), str(sx2.shape)))
 
-                ### Start sparse iteration of RR for each SNP ###
-                self.logger.debug("Sparse: Calculating RR iteration over best {:d} genes (biggest beta values)".format(gene_indices.shape[1]))
-                self.logger.debug("Sparse: I have {:s} gene_indices, {:d} snps, geno is {:s} and {:s} sx2.".format(str(gene_indices.shape), gt.shape[0], str(gt.shape), str(sx2.shape)))
-
-                self._pvals, self._qscores, self._mu, self._sigma, betas = self.slavejob_sparse(gt, self.gx, sb2, sx2, maf, gene_indices, start, end, get_betas)  
-                if get_betas:
-                    self._betas = betas.reshape(gene_indices.shape)
-                self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues, {:s} betas, and {:s} selected genes".format(self.rank, len(self._pvals), str(self._betas.shape), str(gene_indices.shape)))
+            self._pvals, self._qscores, self._mu, self._sigma, betas = self.slavejob_sparse(gt, self.gx, sb2, sx2, maf, gene_indices, start, end, get_betas)  
+            if get_betas:
+                self._betas = betas.reshape(gene_indices.shape)
+            self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues, {:s} betas, and {:s} selected genes".format(self.rank, len(self._pvals), str(self._betas.shape), str(gene_indices.shape)))
         return
 
     def select_best_genes(self, betas, n=1000, selected_genes=None):
@@ -420,19 +424,19 @@ class RevReg:
             else:
                 gene_indices = np.append(gene_indices, bestbetas_ind)
         gene_indices = gene_indices.reshape(betas.shape[0], n)
-        self.logger.debug("Selected best {:d} beta values for the best {:d} SNPs".format(gene_indices.shape[1], gene_indices.shape[0]))
+        self.logger.debug("Rank {:d}: Selected best {:d} beta values for the best {:d} SNPs".format(self.rank, gene_indices.shape[1], gene_indices.shape[0]))
         return gene_indices
 
-    def select_best_SNPs(self, n=1000, pval_thres = 1e-2, use_pvals = True):
+    def select_best_SNPs(self, n=1000, pval_thres = 2e-2, use_pvals = True):
         if use_pvals:
             bestsnps_ind = np.argwhere(self._pvals < pval_thres).reshape(-1,)
-            # bestsnps_ind = np.argwhere(self._pvals > 0.8).reshape(-1,)[:3] # used to select worst pvals
+            # worstsnps_ind = np.argwhere(self._pvals > 0.8).reshape(-1,)[:2] # used to select worst pvals
+            # bestsnps_ind = np.append(bestsnps_ind, worstsnps_ind)
             self.logger.debug("Selected {:d} pvalues below {:f} threshold".format(len(bestsnps_ind), pval_thres))
             # self.logger.debug("Selecting best {:d} pvalues out of {:d}".format(n, len(self.pvals)))
             # bestsnps_ind = np.argpartition(self.pvals, n)[:n]
         else:
             self.logger.debug("Selecting best {:d} Qscores out of {:d}".format(n, len(self.qscores)))
-            bestsnps_ind = np.argpartition(self.qscores, -n)[-n:]
-        # return bestsnps_ind
-        return sorted(bestsnps_ind)
+            bestsnps_ind = sorted(np.argpartition(self.qscores, -n)[-n:])
+        return bestsnps_ind
 

@@ -4,7 +4,11 @@ import logging
 import sys
 from utils import project
 
+loggers = {}
+
 class MyLogger(logging.getLoggerClass()):
+
+    global loggers
 
     def __init__(self, name, format="%(asctime)s | %(name)s | %(levelname)s | %(message)s", level=logging.DEBUG):
 
@@ -16,9 +20,13 @@ class MyLogger(logging.getLoggerClass()):
         handler.setFormatter(formatter)
 
         # Complete logging config.
-        self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
-        self.logger.addHandler(handler)
+        if loggers.get(name):
+            self.logger = loggers.get(name)
+        else:
+            self.logger = logging.getLogger(name)
+            self.logger.setLevel(level)
+            self.logger.addHandler(handler)
+            loggers[name] = self.logger
 
 
     def info(self, msg, extra=None):
