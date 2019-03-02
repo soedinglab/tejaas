@@ -140,29 +140,43 @@ class RevReg:
         #self.logger.debug("Reporting from node {:d}. Sigma = ".format(self.rank) + np.array2string(sig) + "\n" )
         return p, q, mu, sig, b
 
-    # def p_qscore(self, score, random_scores):
-    #     ecdf = ECDF(random_scores)
-    #     res = 1 - ecdf(score)
-    #     return res
-
-    def fit_exp(self, nulldistrib):
-        halfnull = nulldistrib[nulldistrib >= np.mean(nulldistrib)]
-        loc, scale = expon.fit(halfnull)
-        lambd = 1 / scale
-        return lambd
-
-    def p_qscore(self, score, random_scores, p0 = 0.001):
-        n1 = int(p0 * len(random_scores))
-        maxscore = random_scores[np.argsort(-random_scores)][n1]
-        if score > maxscore:
-            lambd = self.fit_exp(random_scores)
-            # qcdf = 1.0 - np.exp(- lambd * score) # cdf of an exponential distribution
-            # res = 1.0 - qcdf
-            res = np.exp(- lambd * score)
-        else:
-            ecdf = ECDF(random_scores)
-            res = 1.0 - ecdf(score)
+    def p_ecdf(self, score, random_scores):
+        ecdf = ECDF(random_scores)
+        res = 1 - ecdf(score)
         return res
+
+    def p_qnullcdf(self, score, nullscores):
+        ntop = min(100, int(len(nullscores)/10))
+        Q_neg = nullscores[np.argsort(nullscores)[-ntop:]]
+        cumsum = 0
+        for i in range(ntop):
+            cumsum += Q_neg[i] - Q_neg[0]
+        lam = (1/ntop) * cumsum
+        pval = (ntop / len(nullscores)) * np.exp(- (score - Q_neg[0])/lam)
+        return pval
+
+    def p_qscore(self, score, nullscores):
+        if score >= np.sort(nullscores)[-100]:
+            return self.p_qnullcdf(score, nullscores)
+        else:
+            return self.p_ecdf(score, nullscores)
+
+    # def fit_exp(self, nulldistrib):
+    #     halfnull = nulldistrib[nulldistrib >= np.mean(nulldistrib)]
+    #     loc, scale = expon.fit(halfnull)
+    #     lambd = 1 / scale
+    #     return lambd
+
+    # def p_qscore_old(self, score, random_scores, p0 = 0.001):
+    #     n1 = int(p0 * len(random_scores))
+    #     maxscore = random_scores[np.argsort(-random_scores)][n1]
+    #     if score > maxscore:
+    #         lambd = self.fit_exp(random_scores)
+    #         res = np.exp(- lambd * score)
+    #     else:
+    #         ecdf = ECDF(random_scores)
+    #         res = 1.0 - ecdf(score)
+    #     return res
 
     def basejob_sparse(self, gt, gx, sb2, sx2, maf, get_betas):
         slv_gt  = np.ascontiguousarray(gt)
@@ -326,7 +340,6 @@ class RevReg:
         geno = self.comm.bcast(geno, root = 0)
         if self.usemask:
             gmasks = self.comm.scatter(gmasks, root = 0)
-            print("RANK: ", self.rank, gmasks)
         else:
             pstart = self.comm.scatter(pstart, root = 0)
             pend = self.comm.scatter(pend, root = 0)
@@ -427,7 +440,7 @@ class RevReg:
         self.logger.debug("Rank {:d}: Selected best {:d} beta values for the best {:d} SNPs".format(self.rank, gene_indices.shape[1], gene_indices.shape[0]))
         return gene_indices
 
-    def select_best_SNPs(self, n=1000, pval_thres = 2e-2, use_pvals = True):
+    def select_best_SNPs(self, n=1000, pval_thres = 1e-2, use_pvals = True):
         if use_pvals:
             bestsnps_ind = np.argwhere(self._pvals < pval_thres).reshape(-1,)
             # worstsnps_ind = np.argwhere(self._pvals > 0.8).reshape(-1,)[:2] # used to select worst pvals

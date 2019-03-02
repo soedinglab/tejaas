@@ -39,7 +39,7 @@ class Outhandler:
         fname = self.args.outprefix + "_gene_snp_list" + prefix + ".txt"
         pvals = jpa.pvals
 
-        if selected_genes is not None:
+        if len(selected_genes):
             np.savetxt(self.args.outprefix + "_selected_genes" + prefix + ".txt", selected_genes, fmt='%i')
             pvals = jpa.pvals[selected_snps]
 
