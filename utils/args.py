@@ -23,7 +23,7 @@ def snprange(mstring):
     except IndexError:
         raise argparse.ArgumentTypeError('Value has to be a range of SNPs separated by colon')
     except LargerEndSnpError:
-        raise argparse.ArgumentTypeError('End SNP position must be less than start SNP position')
+        raise argparse.ArgumentTypeError('End SNP position must be higher than start SNP position')
     return mlist
 
 
@@ -86,7 +86,7 @@ class Args():
             self.endsnp   = args.incsnps[1]
         else:
             self.startsnp  = 0
-            self.endsnp    = 1
+            self.endsnp    = 1e15 # an unusually high number to ensure all SNPs are read.
         self.psnpcut   = args.psnpthres
         self.pgenecut  = args.pgenethres
         self.maf_file  = args.maf_filename
@@ -95,6 +95,7 @@ class Args():
         self.jpafile   = args.jpa_filename
         self.ntransmax = args.optim_ntrans
         self.nullmodel = args.nullmodel
+        self.window    = args.window
 
         self.jpa, self.rr = project.method_selector(args.method)
 
@@ -308,6 +309,12 @@ class Args():
                             dest='maketest',
                             action='store_true',
                             help='whether to do test run')
+
+        parser.add_argument('--window',
+                            type = int,
+                            default = 1e6,
+                            dest = 'window',
+                            help = 'Window (number of base pairs) used for masking cis genes')
 
         res = parser.parse_args()
         return res

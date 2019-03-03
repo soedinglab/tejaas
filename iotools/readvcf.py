@@ -30,6 +30,8 @@ class ReadVCF:
 
     def __init__(self, filepath, startsnp, endsnp, mode="DS"):
         self._filepath = filepath
+        self._startsnp = startsnp
+        self._endsnp = endsnp
         self._mode = mode
 
 
@@ -70,7 +72,6 @@ class ReadVCF:
                     linesplit = linestrip.split("\t")
                     donor_ids = linesplit[9:]
                 else:
-                    linenum += 1
                     if linenum >= self._startsnp and linenum < self._endsnp:
                         linesplit = linestrip.split("\t")
                         chrom = int(linesplit[0])
@@ -113,6 +114,7 @@ class ReadVCF:
 
                         dosage.append(snpdosage)
                         snpinfo.append(this_snp)
+                    linenum += 1
 
         self._dosage = np.array(dosage)
         self._snpinfo = snpinfo

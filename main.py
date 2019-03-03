@@ -128,6 +128,7 @@ if args.rr:
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     rr.compute(get_betas = True)
+    #rr.compute()
 
     if rank == 0:
         ohandle.write_rr_out(jpa, rr, prefix = "_it0")
@@ -179,7 +180,7 @@ if args.rr:
                     qnull = rr_null.scores
             qnull = comm.bcast(qnull, root = 0)
 
-        np.savetxt("/cbscratch/franco/tejaas_output/tests/qnull_scores.txt", qnull) # for testing purposes
+        #np.savetxt("/cbscratch/franco/tejaas_output/tests/qnull_scores.txt", qnull) # for testing purposes
         logger.debug("TIME-->MPIcompute_null took {:g} seconds".format(time.time() - stime))
         
         logger.debug("---> computing rr for sparse")

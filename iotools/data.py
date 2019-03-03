@@ -6,6 +6,7 @@ import os
 from iotools import simulate
 from iotools import readgtf
 from iotools.readOxford import ReadOxford
+from iotools.readvcf import ReadVCF
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo, CisMask
 import scipy.stats as ss
@@ -71,7 +72,7 @@ class Data():
 
 
     @timeit
-    def get_cismasklist(self, snpinfo, geneinfo, chrom, window=1e6):
+    def get_cismasklist_old(self, snpinfo, geneinfo, chrom, window=1e6):
         chr_genes_ix = np.array([i for i, g in enumerate(geneinfo) if g.chrom == chrom])
         chr_genes = [geneinfo[ix] for ix in chr_genes_ix]
         genemasks = list()
@@ -99,7 +100,58 @@ class Data():
 
 
     @timeit
-    def compress_cismasklist(self, genemasks):
+    def get_cismasklist(self, snpinfo, geneinfo, chrom, window=1e6):
+        chr_genes_ix = [[] for ichrm in range(22)] 
+        chr_genes = [[] for ichrm in range(22)]
+        if chrom is not None:
+            chr_genes_ix[chrom - 1] = np.array([i for i, g in enumerate(geneinfo) if g.chrom == chrom])
+            chr_genes[chrom - 1] = [geneinfo[ix] for ix in chr_genes_ix[chrom - 1]]
+        else:
+            for ichrm in range(22):
+                chr_genes_ix[ichrm] = np.array([i for i, g in enumerate(geneinfo) if g.chrom == ichrm + 1])
+                chr_genes[ichrm] = [geneinfo[ix] for ix in chr_genes_ix[ichrm]]
+        genemasks = list()
+        iprev = 0
+        ichrmprev = 0
+        for snp in snpinfo:
+            pos = snp.bp_pos
+            left = pos - window
+            right = pos + window
+            ichrm = chrom if chrom is not None else snp.chrom - 1
+            iprev_started = False
+            if ichrm != ichrmprev:
+                iprev = 0
+                ichrmprev = ichrm
+            thismask = list()
+            for i, g in enumerate(chr_genes[ichrm][iprev:]):
+                gstart = g.start
+                gend = g.end
+                if gstart >= left and gstart <= right:
+                    # thismask.append(iprev + i)
+                    thismask.append(chr_genes_ix[ichrm][iprev + i])
+                    if not iprev_started:
+                        new_start_iloc = iprev
+                        iprev_started = True
+                elif gend >= left and gend <= right:
+                    # thismask.append(iprev + i)
+                    thismask.append(chr_genes_ix[ichrm][iprev + i])
+                    if not iprev_started:
+                        new_start_iloc = iprev
+                        iprev_started = True
+                if gstart > right:
+                    break
+            if len(thismask) > 0:
+                #genemasks.append(chr_genes_ix[np.array(thismask)])
+                #iprev = thismask[0]
+                genemasks.append(np.array(thismask))
+                iprev = new_start_iloc
+            else:
+                genemasks.append(np.array([]))
+        return genemasks
+
+
+    @timeit
+    def compress_cismasklist_old(self, genemasks):
         cismasks = list()
         appendmask = False
         setprev = False
@@ -122,6 +174,42 @@ class Data():
                 prev_mask = mask
                 appendmask = False
         return cismasks
+
+
+    @timeit
+    def compress_cismasklist(self, genemasks):
+        cismasks = list()
+        appendmask = False
+        endmask = False
+        setprev = False
+        snplist = list()
+        for i, mask in enumerate(genemasks):
+            if not setprev:
+                prev_mask = mask
+                setprev = True
+            if np.all(np.array_equal(mask, prev_mask)):
+                snplist.append(i)
+            else:
+                appendmask = True
+
+            if i == len(genemasks) - 1: endmask = True # no more masks to process
+
+            if appendmask:
+                thismask = CisMask(rmv_id = prev_mask, apply2 = snplist)
+                cismasks.append(thismask)
+                snplist = list([i])
+                prev_mask = mask
+                if not endmask:
+                    appendmask = False
+
+            if endmask:
+                if not appendmask:
+                    snplist.append(i)
+                thismask = CisMask(rmv_id = mask, apply2 = snplist)
+                cismasks.append(thismask)
+
+        return cismasks
+
 
     def select_donors(self, vcf_donors, expr_donors):
         ''' Make sure that donors are in the same order for both expression and genotype
@@ -171,7 +259,7 @@ class Data():
             refAllele = snp.ref_allele
             effectAllele = snp.alt_allele
             rsid = snp.varid
-            maf = snp.maf
+            maf = round(snp.maf, 3)
             # Skip non-single letter polymorphisms
             if len(refAllele) > 1 or len(effectAllele) > 1:
                 npoly += 1
@@ -192,9 +280,11 @@ class Data():
             bins = [0.66, 1.33]
             intdosage = np.digitize(dosage[i], bins)
             # Remove SNPs out of HWE
-            if(self.HWEcheck(intdosage) < 0.000001):
-                nhwep += 1
-                continue
+            # hwep = self.HWEcheck(intdosage)
+            #if(hwep < 0.000001):
+            #    nhwep += 1
+            #    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
+            #    continue
             newsnps.append(snp)
             newdosage.append(intdosage)
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
@@ -252,11 +342,6 @@ class Data():
         if(self.args.gxtrim):
             ### for Cardiogenics ###
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
-            #import pickle
-            #ginfo_file = open('ginfo.pickle', 'wb')
-            #pickle.dump(gene_info, ginfo_file)
-            #ginfo_file.close()
-            #gene_info = pickle.load(open('ginfo.pickle', 'rb'))
         else:
             ### for GTEx ###
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
@@ -303,7 +388,7 @@ class Data():
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
             #cis_masks = self.get_cismaskcomp(self._snpinfo, self._geneinfo, self.args.chrom)
             #snps_masks_lists, compressed_masks = self.compress_cis_masks(cis_masks)
-            self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom)
+            self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = self.compress_cismasklist(self._cismasklist)
 
         self.normalize_and_center_dosage(dosage_filtered_selected)

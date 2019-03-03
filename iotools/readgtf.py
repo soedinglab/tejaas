@@ -40,6 +40,11 @@ def gencode_v12(filepath, feature = 'gene', trim=False, biotype=['protein_coding
                 else:
                     raise ValueError('Strand not specified.')
 
+                # For simulation
+                if linesplit[1] == 'SIMULATION':
+                    start = np.int64(linesplit[3])
+                    end   = np.int64(linesplit[4])
+
                 gene_id = infolist[0].strip().split(' ')[1].replace('"','')
                 if trim:
                     gene_id = gene_id.split(".")[0]
