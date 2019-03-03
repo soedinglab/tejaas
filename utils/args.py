@@ -29,7 +29,7 @@ def snprange(mstring):
 
 def method_strings(mstring):
     try:
-        assert (mstring == 'jpa' or mstring == 'jpa-rr' or mstring == 'rr')
+        assert (mstring == 'jpa' or mstring == 'jpa-rr' or mstring == 'rr' or mstring == 'rr-sparse')
     except AssertionError:
         raise argparse.ArgumentTypeError('Please specify a correct method')
     return mstring
@@ -97,7 +97,7 @@ class Args():
         self.nullmodel = args.nullmodel
         self.window    = args.window
 
-        self.jpa, self.rr = project.method_selector(args.method)
+        self.jpa, self.rr, self.pms = project.method_selector(args.method)
 
         self.simulate  = args.simulate
         self.simparams = args.simparams
@@ -227,11 +227,12 @@ class Args():
                             type=method_strings,
                             dest='method',
                             metavar='STR',
-                            help='which method to run: jpa / rr / optim / jpa-rr')
+                            help='which method to run: jpa / rr / optim / jpa-rr / rr-sparse')
     
         parser.add_argument('--outprefix',
                             type=str,
                             dest='outprefix',
+                            default='out',
                             metavar='STR',
                             help='prefix for all output files')
     

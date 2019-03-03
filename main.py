@@ -34,11 +34,6 @@ if rank == 0: start_time = time.time()
 args = Args(comm, rank)
 logger = MyLogger(__name__)
 
-#if args.cismasking:
-#    from qstats.revreg_cis import RevReg
-#else:
-#    from qstats.revreg import RevReg
-
 gtcent = None
 gtnorm = None
 expr   = None
@@ -64,28 +59,6 @@ if rank == 0:
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
     
     maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
-
-    ### Franco shuffle on genes expr
-    # if args.randomize_file is not None:
-    #     rindices = np.loadtxt(args.randomize_file, dtype=int)
-    #     if len(rindices) == data.expression.shape[1]:
-    #         expr = data.expression[:, rindices]
-    #     else:
-    #         print("Random indices number do not match with current number of gx donors")
-    #         raise
-
-    ### Saikat shuffle on GTs
-    #if args.shuffle:
-    #    logger.warn("Shuffling genotype.") 
-    #    gtcent_shuf = np.zeros_like(gtcent)
-    #    gtnorm_shuf = np.zeros_like(gtnorm)
-    #    for i in range(gtcent.shape[0]):
-    #        idx = np.random.permutation(np.arange(0,gtcent.shape[1]))
-    #        np.random.shuffle(idx)
-    #        gtcent_shuf[i,:] = gtcent[i,idx]
-    #        gtnorm_shuf[i,:] = gtnorm[i,idx]
-    #    gtcent = gtcent_shuf
-    #    gtnorm = gtnorm_shuf
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
@@ -115,31 +88,32 @@ if args.jpa and args.rr:
     #geno = geno[qselect, :]
     #broadcast this new genotype
 
+
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
 
-    if rank == 0: 
-        if args.outprefix is None:
-            args.outprefix = "out"    
-        ohandle = Outhandler(args, snpinfo, geneinfo)
-    
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
-    rr.compute(get_betas = True)
-    #rr.compute()
 
-    if rank == 0:
-        ohandle.write_rr_out(jpa, rr, prefix = "_it0")
+    if args.pms:
+        rr.compute(get_betas = True)
+        if rank == 0:
+            ohandle = Outhandler(args, snpinfo, geneinfo)
+            ohandle.write_rr_out(jpa, rr, prefix = "_it0")
+    else:
+        rr.compute()
 
+if rank == 0: rr_time = time.time()
 
+if args.pms:
     ###### New implementation of sparsity and null model calculation
     best_snp_indices = None
     gene_indices     = None
     if rank == 0:
         best_snp_indices = rr.select_best_SNPs(pval_thres = 1e-2, use_pvals = True)
-        gene_indices     = rr.select_best_genes(rr.betas[best_snp_indices,:], n=5000)
+        gene_indices     = rr.select_best_genes(rr.betas[best_snp_indices,:], n=1000)
     gene_indices     = comm.bcast(gene_indices, root = 0)
     best_snp_indices = comm.bcast(best_snp_indices, root = 0)
     comm.barrier()
@@ -165,7 +139,7 @@ if args.rr:
 
             null_gene_indices = None
             if rank == 0:
-                null_gene_indices = rr_null.select_best_genes(rr_null.betas, n=5000)
+                null_gene_indices = rr_null.select_best_genes(rr_null.betas, n=1000)
             null_gene_indices = comm.bcast(null_gene_indices, root = 0)
             comm.barrier()
 
@@ -188,20 +162,17 @@ if args.rr:
         rr_sparse.compute_sparse(gene_indices, qnull, get_betas = False)
         ##### end
 
-        if rank == 0:
-            ohandle.write_rr_out(jpa, rr_sparse, selected_snps = best_snp_indices, selected_genes = gene_indices, prefix = "_it1")
-
-if rank == 0: rr_time = time.time()
-    
+if rank == 0: pms_time = time.time()
+ 
 # Output handling only from master node // move it to module
-# if rank == 0: 
-#     if args.outprefix is None:
-#         args.outprefix = "out"    
-#     ohandle = Outhandler(args, snpinfo, geneinfo)
-#     if args.jpa:
-#         ohandle.write_jpa_out(jpa)
-#     if args.rr:
-#         ohandle.write_rr_out(jpa, rr)
+if rank == 0: 
+    ohandle = Outhandler(args, snpinfo, geneinfo)
+    if args.jpa:
+        ohandle.write_jpa_out(jpa)
+    if args.rr:
+        ohandle.write_rr_out(jpa, rr)
+    if args.pms:
+        ohandle.write_rr_out(jpa, rr_sparse, selected_snps = best_snp_indices, selected_genes = gene_indices, prefix = "_it1")
 
 if rank == 0: write_time = time.time()
 
@@ -209,6 +180,7 @@ if rank == 0:
     logger.info("File reading time: {:g} seconds".format(read_time - start_time))
     logger.info("JPA calculation time: {:g} seconds".format (jpa_time - read_time))
     logger.info("RR calculation time: {:g} seconds".format (rr_time - jpa_time))
+    logger.info("PMS calculation time: {:g} seconds".format(pms_time - rr_time))
     logger.info("Result writing time: {:g} seconds".format(write_time - rr_time))
     logger.info("Total execution time: {:g} seconds".format(time.time() - start_time))
 
