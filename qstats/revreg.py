@@ -420,7 +420,7 @@ class RevReg:
             self._pvals, self._qscores, self._mu, self._sigma, betas = self.slavejob_sparse(gt, self.gx, sb2, sx2, maf, gene_indices, start, end, get_betas)  
             if get_betas:
                 self._betas = betas.reshape(gene_indices.shape)
-            self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues, {:s} betas, and {:s} selected genes".format(self.rank, len(self._pvals), str(self._betas.shape), str(gene_indices.shape)))
+                self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues, {:s} betas, and {:s} selected genes".format(self.rank, len(self._pvals), str(self._betas.shape), str(gene_indices.shape)))
         return
 
     def select_best_genes(self, betas, n=1000, selected_genes=None):
