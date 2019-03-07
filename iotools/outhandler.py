@@ -15,6 +15,15 @@ class Outhandler:
         logger.debug('Writing result in: {:s}'.format(dirname))
         if not os.path.exists(dirname): os.makedirs(dirname)
 
+    def write_fstat_out(self, cpma):
+        fname = self.args.outprefix + "_cpma_fstat.txt"
+        fstats = cpma.fstats
+        gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
+        with open(fname, "w") as f:
+            f.write("snpid "+gene_names+"\n")
+            for i, snp in enumerate(self.snpinfo):
+                f.write("{:s} {:s}\n".format(snp.varid, " ".join(["{:g}".format(i) for i in fstats[i,:]])))
+
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
         scores = jpa.scores

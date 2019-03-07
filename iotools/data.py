@@ -117,7 +117,7 @@ class Data():
             pos = snp.bp_pos
             left = pos - window
             right = pos + window
-            ichrm = chrom if chrom is not None else snp.chrom - 1
+            ichrm = chrom - 1 if chrom is not None else snp.chrom - 1
             iprev_started = False
             if ichrm != ichrmprev:
                 iprev = 0

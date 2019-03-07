@@ -1,0 +1,4 @@
+#!/bin/bash
+
+BINPATH=`dirname $0`
+$HOME/opt/miniconda/3/envs/env3.6/bin/python "$BINPATH/../main_jpa_cpma.py" $@
