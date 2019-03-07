@@ -144,12 +144,13 @@ class CPMA:
             slave_offs = None
             slave_gmasks = None
 
-        if self.usemask:
-            slave_gmasks = self.comm.scatter(gmasks, root = 0)
-        else:
-            slave_gmasks = self.comm.bcast(gmasks, root = 0)
+        # if self.usemask:
+        #     slave_gmasks = self.comm.scatter(gmasks, root = 0)
+        # else:
+        #     slave_gmasks = self.comm.bcast(gmasks, root = 0)
 
-        qscores = self.slavejob(self, self._fstat, self._fstat.shape[0], self._fstat.shape[1], self.masks, self.usemask)
+        if rank == 0:
+            self._qscores = self.slavejob(self, self._fstat, self._fstat.shape[0], self._fstat.shape[1], self.masks, self.usemask)
 
         if rank == 0:
             C = np.cov(self._fstat.T)
@@ -167,6 +168,11 @@ class CPMA:
 
         # you will recieve NCORE x permutations qscores
         null_qscores = self.comm.gather(qscores, root = 0)
+
+        if rank == 0:
+            self._pvals = [self.p_qscore(q, null_qscores) for q in self._qscores]
+
+        return
 
     def mpicompute_fstat(self):
         if self.rank == 0:
