@@ -8,7 +8,7 @@ from utils.logs import MyLogger
 
 class JPANULL:
 
-    def __init__(self, comm, rank, ncore, W, Q, N):
+    def __init__(self, W, Q, N, comm, rank, ncore):
         self._pvals = None
         self._qscores = None
         self._W = W
@@ -50,6 +50,9 @@ class JPANULL:
         ngene = W.shape[0]
         pvals = np.zeros(n * ngene)
         for i in range(n):
+            ngene = W.shape[0]
+            znull = np.random.normal(0, 1, size=ngene)
+            pvals[i*ngene : (i+1)*ngene] = 1 - stats.norm.cdf(znull)
             #znull = zmu + Q * np.sqrt(W) * N(0,1)
             #pvals[i*ngene : (i+1)*ngene] = 1 - stats.chi2.cdf(znull)
         qnull = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(n)])

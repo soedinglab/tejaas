@@ -32,6 +32,15 @@ class Outhandler:
             for i, snp in enumerate(self.snpinfo):
                 f.write("{:s}\t{:g}\n".format(snp.varid, scores[i]))
 
+    def write_jpa_pvals(self, jpa):
+        fname = self.args.outprefix + "_jpa_pvals.txt"
+        scores = jpa.scores
+        pvals = jpa.pcpma
+        with open(fname, "w") as f:
+            f.write("snpid\tjpascore\tp-value\n")
+            for i, snp in enumerate(self.snpinfo):
+                f.write("{:s}\t{:g}\t{:g}\n".format(snp.varid, scores[i], pvals[i]))
+
 
     def write_rr_out(self, jpa, rr, prefix = "", selected_snps = [], selected_genes = [], write_betas = False):
         mysnpinfo = self.snpinfo

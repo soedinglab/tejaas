@@ -96,6 +96,7 @@ class Args():
         self.ntransmax = args.optim_ntrans
         self.nullmodel = args.nullmodel
         self.window    = args.window
+        self.qnullfile = args.qnullfile
 
         self.jpa, self.rr, self.pms = project.method_selector(args.method)
 
@@ -316,6 +317,11 @@ class Args():
                             default = 1e6,
                             dest = 'window',
                             help = 'Window (number of base pairs) used for masking cis genes')
+
+        parser.add_argument('--nullfile',
+                            type = str,
+                            dest = 'qnullfile',
+                            help = 'Filename for storing / reading null JPA scores')
 
         res = parser.parse_args()
         return res
