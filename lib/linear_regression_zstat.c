@@ -115,7 +115,7 @@ int fit(double* genotype, double* expression, int nsnps, int ngene, int nsample,
                X is the genotype
                Y is the expression
              */
-            fval = linear_regression(x, y, nsample);
+            fval = linear_regression_zstat(x, y, nsample);
             pos = (i * ngene) + k;
             farr[pos] = fval;
         }

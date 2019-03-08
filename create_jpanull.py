@@ -17,7 +17,7 @@ from iotools.data import Data
 #from iotools.outhandler import Outhandler
 #from iotools import readmaf
 
-from qstats.jpa_fstats import JPAFSTATS
+from qstats.jpa_zstats import JPAZSTATS
 from qstats.jpa_null import JPANULL
 
 # ==================================================
@@ -75,17 +75,17 @@ snpinfo = comm.bcast(snpinfo, root = 0)
 comm.barrier()
 
 if rank == 0: read_time = time.time()
-if rank == 0: logger.debug("Computing F-stats")
+if rank == 0: logger.debug("Computing Z-stats")
 
-jpa_fstats = JPAFSTATS(gtnorm, expr, comm, rank, ncore)
-jpa_fstats.compute()
+jpa_zstats = JPAZSTATS(gtnorm, expr, comm, rank, ncore)
+jpa_zstats.compute()
 
-if rank == 0: fstat_time = time.time()
+if rank == 0: zstat_time = time.time()
 if rank == 0: logger.debug("Computing W and Q")
 
 if rank == 0:
-    fstats = jpa_fstats.fstats
-    C = np.cov(fstats.T)
+    zstats = jpa_zstats.zstats
+    C = np.cov(zstats.T)
     W, Q = np.linalg.eig(C)
 
 W = comm.bcast(W, root = 0)
@@ -110,8 +110,8 @@ if rank == 0: write_time = time.time()
 
 if rank == 0:
     logger.info("File reading time: {:g} seconds".format(read_time - start_time))
-    logger.info("F-stat calculation time: {:g} seconds".format (fstat_time - read_time))
-    logger.info("W and Q calculation time: {:g} seconds".format(wq_time - fstat_time))
+    logger.info("F-stat calculation time: {:g} seconds".format (zstat_time - read_time))
+    logger.info("W and Q calculation time: {:g} seconds".format(wq_time - zstat_time))
     logger.info("Null JPA calculation time: {:g} seconds".format (null_time - wq_time))
     logger.info("Result writing time: {:g} seconds".format(write_time - null_time))
     logger.info("Total execution time: {:g} seconds".format(time.time() - start_time))
