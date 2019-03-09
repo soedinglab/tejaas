@@ -17,8 +17,9 @@ from iotools.data import Data
 #from iotools.outhandler import Outhandler
 #from iotools import readmaf
 
-from qstats.jpa_zstats import JPAZSTATS
-from qstats.jpa_null import JPANULL
+from qstats.zstats import ZSTATS
+from qstats.nullscores import JPANULL
+from scipy.linalg import eigh
 
 # ==================================================
 # Start MPI calculation
@@ -44,6 +45,7 @@ snpinfo = None
 #maskcomp = None
 W = None
 Q = None
+Zmean = None
 niter = None
 
 if rank == 0:
@@ -63,7 +65,7 @@ if rank == 0:
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
     
     #maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
-    niter = 1000
+    niter = 100000
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
@@ -77,26 +79,41 @@ comm.barrier()
 if rank == 0: read_time = time.time()
 if rank == 0: logger.debug("Computing Z-stats")
 
-jpa_zstats = JPAZSTATS(gtnorm, expr, comm, rank, ncore)
-jpa_zstats.compute()
+zstats = ZSTATS(gtnorm, expr, comm, rank, ncore)
+zstats.compute()
 
 if rank == 0: zstat_time = time.time()
 if rank == 0: logger.debug("Computing W and Q")
 
 if rank == 0:
-    zstats = jpa_zstats.zstats
+    zstats = zstats.scores
     C = np.cov(zstats.T)
-    W, Q = np.linalg.eig(C)
+    # Numpy gives imaginary eigenvalues, use eigh from scipy
+    # for decomposition of real symmetric matrix
+    W, Q = eigh(C)
+    # still some eigenvalues are negative. force them to zero if they are negligible. (!!!!!!!!!!!)
+    # check if everything is ok
+    Wsparse = W.copy()
+    Wsparse[np.where(W < 0)] = 0
+    
+    if not np.allclose(C, Q @ np.diag(W) @ Q.T):
+        logger.error("Eigen vectors could not be forced to positive")
+        exit
+    else:
+        W = Wsparse
+        logger.debug("Eigen vectors are forced to positive")
+    Zmean = np.mean(zstats, axis = 0)
 
 W = comm.bcast(W, root = 0)
 Q = comm.bcast(Q, root = 0)
+Zmean = comm.bcast(Zmean, root = 0)
 niter = comm.bcast(niter, root = 0)
 comm.barrier()
 
 if rank == 0: wq_time = time.time()
 if rank == 0: logger.debug("Computing null JPA-scores")
 
-jpa_null = JPANULL(W, Q, niter, comm, rank, ncore)
+jpa_null = JPANULL(W, Q, Zmean, niter, comm, rank, ncore)
 jpa_null.compute()
 
 if rank == 0: null_time = time.time()

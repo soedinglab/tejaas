@@ -73,6 +73,8 @@ class JPA:
 
 
     def jpascore(self, pvals):
+        min_nonzero = np.min(pvals[np.nonzero(pvals)])
+        pvals[pvals == 0] = min_nonzero
         p = np.sort(pvals)
         n = p.shape[0]
         kmax = min(100, n)
@@ -86,7 +88,7 @@ class JPA:
 
     def clinreg(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
-        clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
+        clib = np.ctypeslib.load_library('../lib/linear_regression_zstat.so', _path)
         cfstat = clib.fit
         cfstat.restype = ctypes.c_int
         cfstat.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
@@ -105,7 +107,8 @@ class JPA:
         ngene = expr.shape[0]
         fstat = np.zeros(nsnps * ngene)
         success = cfstat(x, y, nsnps, ngene, nsample, fstat)
-        res = 1 - stats.f.cdf(fstat, 1, nsample-2)
+        #res = 1 - stats.f.cdf(fstat, 1, nsample-2)
+        res = 2.0 * (1 - stats.norm.cdf(np.abs(fstat)))
         return res
 
 
@@ -142,6 +145,7 @@ class JPA:
             nsnp = None
             offset = None
             gmasks = None
+            qnull = None
             slave_geno = None
             slave_expr = None
             slave_nsnp = None

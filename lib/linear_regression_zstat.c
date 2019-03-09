@@ -70,7 +70,7 @@ double linear_regression_zstat(double* X, double* Y, int N) {
     sum_sq_xres = sum_xx - sum_x*sum_x / N;
     sesq = (sum_sq_yres - b1 * b1 * sum_sq_xres) / (sum_sq_xres * (N - 2));
     se = sqrt(sesq);
-    zstat = (b1 - b0) / se;
+    zstat = b1 / se;
     return zstat;
 }
 

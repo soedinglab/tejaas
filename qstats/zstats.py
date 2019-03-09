@@ -6,7 +6,7 @@ import ctypes
 from utils import mpihelper
 from utils.logs import MyLogger
 
-class JPAZSTATS:
+class ZSTATS:
 
     def __init__(self, x, y, comm, rank, ncore):
         self.gt = x
@@ -22,7 +22,7 @@ class JPAZSTATS:
 
 
     @property
-    def zstats(self):
+    def scores(self):
         return self._zstats
 
 
@@ -103,7 +103,6 @@ class JPAZSTATS:
         if self.rank == 0:
             self._zstats = recvbuf.reshape(sum(nsnp), ngene)
         else:
-            assert qscores is None
             assert recvbuf is None
 
         return

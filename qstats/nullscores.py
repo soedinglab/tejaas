@@ -8,11 +8,12 @@ from utils.logs import MyLogger
 
 class JPANULL:
 
-    def __init__(self, W, Q, N, comm, rank, ncore):
+    def __init__(self, W, Q, Zmean, N, comm, rank, ncore):
         self._pvals = None
         self._qscores = None
         self._W = W
         self._Q = Q
+        self._Zmean = Zmean
         self._N = N
         self.rank = rank
         self.comm = comm
@@ -45,16 +46,15 @@ class JPANULL:
         return res
 
 
-    def slavejob(self, W, Q, n):
-        self.logger.debug('Rank {:d} calculating for {:d} SNPs'.format(self.rank, n))
+    def slavejob(self, W, Q, Zmean, n):
+        self.logger.debug('Rank {:d} calculating {:d} null JPA scores'.format(self.rank, n))
         ngene = W.shape[0]
         pvals = np.zeros(n * ngene)
         for i in range(n):
             ngene = W.shape[0]
-            znull = np.random.normal(0, 1, size=ngene)
-            pvals[i*ngene : (i+1)*ngene] = 1 - stats.norm.cdf(znull)
-            #znull = zmu + Q * np.sqrt(W) * N(0,1)
-            #pvals[i*ngene : (i+1)*ngene] = 1 - stats.chi2.cdf(znull)
+            zrand = np.random.normal(0, 1, size = ngene)
+            znull = Zmean + np.einsum('ij, j, j', Q, np.sqrt(W), zrand)
+            pvals[i*ngene : (i+1)*ngene] = 2.0 * (1 - stats.norm.cdf(np.abs(znull)))
         qnull = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(n)])
         return pvals, qnull
 
@@ -65,23 +65,29 @@ class JPANULL:
             # create a list of N for sending to your slaves
             thisW = self._W
             thisQ = self._Q
-            start, end = mpihelpher.split_n(10, 3)
+            thisZmean = self._Zmean
+            start, end = mpihelper.split_n(self._N, self.ncore)
             nlist = [x - y for x, y in zip(end, start)]
         else:
+            thisW = None
+            thisQ = None
+            thisZmean = None
             nlist = None
             slave_W = None
             slave_Q = None
+            slave_Zmean = None
             slave_n = None
         
-        slave_W = self.comm.bcast(W, root = 0)
-        slave_Q = self.comm.bcast(Q, root = 0)
+        slave_W = self.comm.bcast(thisW, root = 0)
+        slave_Q = self.comm.bcast(thisQ, root = 0)
+        slave_Zmean = self.comm.bcast(thisZmean, root = 0)
         slave_n = self.comm.scatter(nlist, root = 0)
         self.comm.barrier()
         
         # ==================================
         # Data sent. Do the calculations
         # ==================================
-        pvals, qscores = self.slavejob(slave_W, slave_Q, slave_n)
+        pvals, qscores = self.slavejob(slave_W, slave_Q, slave_Zmean, slave_n)
 
         # ==================================
         # Collect the results
@@ -113,7 +119,7 @@ class JPANULL:
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.slavejob(self._W, self._Q, self._N)
+            pvals, qscores = self.slavejob(self._W, self._Q, self._Zmean, self._N)
             self._pvals = pvals.reshape(self._N, self._W.shape[0])
             self._qscores = qscores
         return
