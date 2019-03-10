@@ -65,7 +65,7 @@ class JPANULL:
             # create a list of N for sending to your slaves
             thisW = self._W
             thisQ = self._Q
-            start, end = mpihelpher.split_n(10, 3)
+            start, end = mpihelpher.split_n(self._N, self.ncore)
             nlist = [x - y for x, y in zip(end, start)]
         else:
             nlist = None

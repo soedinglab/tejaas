@@ -75,6 +75,27 @@ if rank == 0: logger.debug("Computing JPA")
 jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
 jpa.compute()
 
+##### NULL for JPA
+# if rank == 0: jpanull_time = time.time()
+# rand_gtnorm = gtnorm.copy()
+# jpanull = None
+# for i in range(333):
+#     np.random.shuffle(rand_gtnorm.T)
+#     jpa_null = JPA(rand_gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
+#     jpa_null.compute()
+#     if rank == 0:
+#         if jpanull is not None:
+#             jpanull = np.vstack((jpanull, jpa_null.scores))
+#         else:
+#             jpanull = jpa_null.scores
+# if rank == 0: jpanull_endtime = time.time()
+# if rank == 0: logger.info("JPA Null calculation time: {:g} seconds".format (jpanull_endtime - jpanull_time))
+# if rank == 0: print(jpanull.shape) # times x qscores
+
+# if rank == 0: np.savetxt("/cbscratch/franco/tejaas_output/tests/jpanull_scores.txt", jpanull) # for testing purposes
+# 2019-03-05 21:08:24,372 | __main__ | INFO | JPA Null calculation time: 8886.86 seconds
+##### End of NULL for JPA
+
 if rank == 0: jpa_time = time.time()
 
 # # Select the SNPs with JPA score above threshold for RevReg

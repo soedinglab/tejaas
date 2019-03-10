@@ -104,7 +104,7 @@ if rank == 0:
     fname = args.qnullfile
     with open(fname, 'w') as fout:
         for qnull in jpa_null.scores:
-            fout.write(f"{qnull}\n") 
+            fout.write("{:g}\n".format(qnull)) 
 
 if rank == 0: write_time = time.time()
 

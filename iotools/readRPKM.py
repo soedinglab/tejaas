@@ -123,9 +123,9 @@ class ReadRPKM:
         except IOError as err:
             raise IOError("{:s}: {:s}".format(self._rpkmfile, err.strerror))
         expression = np.array(expr_list).transpose()
-        # normexpr = self._normalize_expr(expression)
-        # self._gene_expression = normexpr
-        self._gene_expression = expression
+        normexpr = self._normalize_expr(expression)
+        self._gene_expression = normexpr
+        # self._gene_expression = expression
         self._donor_ids = donor_list
 
 
