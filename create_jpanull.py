@@ -14,8 +14,6 @@ from utils.args import Args
 from utils.logs import MyLogger
 from utils import project
 from iotools.data import Data
-#from iotools.outhandler import Outhandler
-#from iotools import readmaf
 
 from qstats.zstats import ZSTATS
 from qstats.nullscores import JPANULL
@@ -39,10 +37,9 @@ logger = MyLogger(__name__)
 gtcent = None
 gtnorm = None
 expr   = None
-#maf = None
 snpinfo = None
-#masklist = None
-#maskcomp = None
+masklist = None
+maskcomp = None
 W = None
 Q = None
 Zmean = None
@@ -60,26 +57,23 @@ if rank == 0:
     snpinfo = data.snpinfo
     expr = data.expression
     geneinfo = data.geneinfo
-    #masklist = data.cismasks_list
-    #maskcomp = data.cismasks_comp
+    masklist = data.cismasks_list
+    maskcomp = data.cismasks_comp
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
-    
-    #maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
     niter = 100000
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
 expr   = comm.bcast(expr,  root = 0)
 snpinfo = comm.bcast(snpinfo, root = 0)
-#maf  = comm.bcast(maf, root = 0)
-#masklist = comm.bcast(masklist, root = 0)
-#maskcomp = comm.bcast(maskcomp, root = 0)
+masklist = comm.bcast(masklist, root = 0)
+maskcomp = comm.bcast(maskcomp, root = 0)
 comm.barrier()
 
 if rank == 0: read_time = time.time()
 if rank == 0: logger.debug("Computing Z-stats")
 
-zstats = ZSTATS(gtnorm, expr, comm, rank, ncore)
+zstats = ZSTATS(gtnorm, expr, comm, rank, ncore, masklist)
 zstats.compute()
 
 if rank == 0: zstat_time = time.time()

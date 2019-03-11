@@ -12,6 +12,7 @@ def version():
 
 
 def method_selector(method):
+    onlyjpa = False
     jpa = False
     rrg = False
     pms = False
@@ -26,4 +27,7 @@ def method_selector(method):
         jpa = True
         rrg = True
         pms = True
-    return jpa, rrg, pms
+    if jpa and not rrg and not pms:
+        jpa = False
+        onlyjpa = True
+    return jpa, rrg, pms, onlyjpa
