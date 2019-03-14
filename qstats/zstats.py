@@ -6,12 +6,12 @@ import ctypes
 from utils import mpihelper
 from utils.logs import MyLogger
 
-class JPAFSTATS:
+class ZSTATS:
 
     def __init__(self, x, y, comm, rank, ncore):
         self.gt = x
         self.gx = y
-        self._fstats = None
+        self._zstats = None
         self.rank = rank
         self.comm = comm
         self.ncore = ncore
@@ -22,16 +22,16 @@ class JPAFSTATS:
 
 
     @property
-    def fstats(self):
-        return self._fstats
+    def scores(self):
+        return self._zstats
 
 
     def clinreg(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
-        clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
-        cfstat = clib.fit
-        cfstat.restype = ctypes.c_int
-        cfstat.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
+        clib = np.ctypeslib.load_library('../lib/linear_regression_zstat.so', _path)
+        czstat = clib.fit
+        czstat.restype = ctypes.c_int
+        czstat.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                            np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
                            ctypes.c_int,
                            ctypes.c_int,
@@ -45,18 +45,18 @@ class JPAFSTATS:
         nsnps = geno.shape[0]
         nsample = geno.shape[1]
         ngene = expr.shape[0]
-        fstat = np.zeros(nsnps * ngene)
-        success = cfstat(x, y, nsnps, ngene, nsample, fstat)
-        #res = 1 - stats.f.cdf(fstat, 1, nsample-2)
-        return fstat
+        zstat = np.zeros(nsnps * ngene)
+        success = czstat(x, y, nsnps, ngene, nsample, zstat)
+        #res = 1 - stats.f.cdf(zstat, 1, nsample-2)
+        return zstat
 
 
     def slavejob(self, geno, expr, nmax, offset):
         self.logger.debug('Rank {:d} calculating SNPs {:d} to {:d}'.format(self.rank, offset+1, nmax + offset))
         nsnps = geno.shape[0]
         ngene = expr.shape[0]
-        fstat = self.clinreg(geno, expr, nmax)
-        return fstat
+        zstat = self.clinreg(geno, expr, nmax)
+        return zstat
 
 
     def mpicompute(self):
@@ -81,11 +81,11 @@ class JPAFSTATS:
         slave_nsnp = self.comm.scatter(nsnp, root = 0)
         slave_offs = self.comm.scatter(offset, root = 0)
         self.comm.barrier()
-        
+
         # ==================================
         # Data sent. Do the calculations
         # ==================================
-        fstat = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs)
+        zstat = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs)
 
         # ==================================
         # Collect the results
@@ -98,12 +98,11 @@ class JPAFSTATS:
             recvbuf = np.zeros(sum(flat_sizes), dtype=np.float64)
         else:
             flat_sizes = None
-        self.comm.Gatherv(sendbuf=fstat, recvbuf=(recvbuf, flat_sizes), root = 0)
+        self.comm.Gatherv(sendbuf=zstat, recvbuf=(recvbuf, flat_sizes), root = 0)
 
         if self.rank == 0:
-            self._fstats = recvbuf.reshape(sum(nsnp), ngene)
+            self._zstats = recvbuf.reshape(sum(nsnp), ngene)
         else:
-            assert qscores is None
             assert recvbuf is None
 
         return
@@ -113,6 +112,6 @@ class JPAFSTATS:
         if self.mpi:
             self.mpicompute()
         else:
-            fstats = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0)
-            self._fstats = fstats.reshape(self.gt.shape[0], self.gx.shape[0])
+            zstats = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0)
+            self._zstats = zstats.reshape(self.gt.shape[0], self.gx.shape[0])
         return
