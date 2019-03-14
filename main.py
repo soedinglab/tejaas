@@ -15,9 +15,12 @@ from utils.logs import MyLogger
 from utils import project
 from qstats.jpa import JPA
 from qstats.revreg import RevReg
+from qstats.jpa_pvals import JPAPVALS
+
 from iotools.data import Data
 from iotools.outhandler import Outhandler
 from iotools import readmaf
+from iotools import readqnull
 
 # ==================================================
 # Start MPI calculation
@@ -41,6 +44,7 @@ maf = None
 snpinfo = None
 masklist = None
 maskcomp = None
+if args.onlyjpa: qnull = None
 
 if rank == 0:
     logger.debug("Using {:d} cores".format(ncore))
@@ -59,6 +63,7 @@ if rank == 0:
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
     
     maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
+    if args.onlyjpa: qnull = readqnull.load(args.qnullfile)
 
 gtnorm = comm.bcast(gtnorm, root = 0)
 gtcent = comm.bcast(gtcent, root = 0)
@@ -67,13 +72,19 @@ snpinfo = comm.bcast(snpinfo, root = 0)
 maf  = comm.bcast(maf, root = 0)
 masklist = comm.bcast(masklist, root = 0)
 maskcomp = comm.bcast(maskcomp, root = 0)
+if args.onlyjpa: qnull = comm.bcast(qnull, root = 0)
 comm.barrier()
 
 if rank == 0: read_time = time.time()
 
 if rank == 0: logger.debug("Computing JPA")
-jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
-jpa.compute()
+
+if args.onlyjpa:
+    jpa = JPAPVALS(gtnorm, expr, qnull, comm, rank, ncore, args.onlyjpa, masklist)
+    jpa.compute()
+else:
+    jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
+    jpa.compute()
 
 ##### NULL for JPA
 # if rank == 0: jpanull_time = time.time()
@@ -108,7 +119,6 @@ if args.jpa and args.rr:
     comm.barrier()
     #geno = geno[qselect, :]
     #broadcast this new genotype
-
 
 if args.rr:
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
@@ -188,8 +198,8 @@ if rank == 0: pms_time = time.time()
 # Output handling only from master node // move it to module
 if rank == 0: 
     ohandle = Outhandler(args, snpinfo, geneinfo)
-    if args.jpa:
-        ohandle.write_jpa_out(jpa)
+    if args.onlyjpa:
+        ohandle.write_jpa_pvals(jpa)
     if args.rr:
         ohandle.write_rr_out(jpa, rr)
     if args.pms:

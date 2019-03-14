@@ -15,8 +15,6 @@ from utils.logs import MyLogger
 from utils import project
 from utils import mpihelper
 from iotools.data import Data
-#from iotools.outhandler import Outhandler
-#from iotools import readmaf
 
 from qstats.zstats import ZSTATS
 from qstats.nullscores import JPANULL
@@ -40,10 +38,9 @@ logger = MyLogger(__name__)
 gtcent = None
 gtnorm = None
 expr   = None
-#maf = None
 snpinfo = None
-#masklist = None
-#maskcomp = None
+masklist = None
+maskcomp = None
 W = None
 Q = None
 Zmean = None
@@ -57,9 +54,10 @@ if rank == 0:
     else:
         data.load()
     tissue = args.gx_file.split(".")[4]
-    print("Tissue:", tissue)
+    logger.debug("Tissue: "+tissue)
     gtcent = data.geno_centered
     gtnorm = data.geno_normed
+    outdir = os.path.dirname(args.outprefix)
     maxmemSNPs = 20000000 #100000000
     # maxmemSNPs = 1440000 #360*4000
     nchunks = 1
@@ -74,10 +72,9 @@ if rank == 0:
         print(offset)
         print([x.shape for x in gt_chunks])
     snpinfo = data.snpinfo
-    expr = data.expression #[0:4000,:]
+    expr = data.expression
     geneinfo = data.geneinfo
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
-    #maf = readmaf.load(snpinfo, args.nullmodel, args.maf_file)
     niter = 100000
 else:
     gtnorm = None
@@ -85,43 +82,40 @@ else:
     gt_chunks = None
     nchunks = None
 
-
-# gtnorm = comm.bcast(gtnorm, root = 0) # OverflowError: cannot serialize a bytes object larger than 4 GiB
-# gtcent = comm.bcast(gtcent, root = 0)
-
 expr    = comm.bcast(expr,  root = 0)
 nchunks = comm.bcast(nchunks, root = 0)
 if rank != 0:
     gt_chunks = [None for i in range(nchunks)]
-# snpinfo = comm.bcast(snpinfo, root = 0)
-# #maf  = comm.bcast(maf, root = 0)
+snpinfo = comm.bcast(snpinfo, root = 0)
 comm.barrier()
-
 
 if rank == 0: read_time = time.time()
 if rank == 0: logger.debug("Computing Z-stats")
 
-# zstats_buf = None
-for i in range(nchunks):
-    if rank == 0: print(len(gt_chunks[i]))
-    zstats = ZSTATS(gt_chunks[i], expr, comm, rank, ncore)
-    zstats.compute()
+if nchunks > 1:
+    zstats_buf = None
+    for i in range(nchunks):
+        if rank == 0: print(len(gt_chunks[i]))
+        zstats = ZSTATS(gt_chunks[i], expr, comm, rank, ncore)
+        zstats.compute()
 
-    if rank == 0:
-        print("Zstats: ", zstats.scores.shape)
-        np.savetxt("/cbscratch/franco/trans-eqtl/dev-pipeline/lmcorrected/chunk{0:03d}_Zstats.txt".format(i), zstats.scores)
-        # if zstats_buf is None:
-        #     zstats_buf = zstats.scores
-        # else:
-        #     zstats_buf = np.vstack((zstats_buf, zstats.scores))
-        # print("Zstats: ", zstats_buf.shape)
+        if rank == 0:
+            np.savetxt(outdir+"/chunk{0:03d}_Zstats.txt".format(i), zstats.scores)
+            if zstats_buf is None:
+                zstats_buf = zstats.scores
+            else:
+                zstats_buf = np.vstack((zstats_buf, zstats.scores))
+            logger.debug("Zstats: "+str(zstats_buf.shape))
+else:
+    zstats = ZSTATS(gtnorm, expr, comm, rank, ncore, masklist)
+    zstats.compute()
+    if rank == 0: zstats_buf = zstats.scores
 
 if rank == 0: zstat_time = time.time()
 if rank == 0: logger.debug("Computing W and Q")
 
 if rank == 0:
-    # print("Zstats: ", zstats.scores.shape)
-    # zstats = zstats.scores
+    logger.debug("Final Zstats: "+str(zstats_buf.shape))
     C = np.cov(zstats_buf.T)
     # Numpy gives imaginary eigenvalues, use eigh from scipy
     # for decomposition of real symmetric matrix
@@ -140,9 +134,8 @@ if rank == 0:
     else:
         W = Wsparse
         logger.debug("Eigen vectors are forced to positive")
-        np.savetxt("/cbscratch/franco/datasets/gtex/Wcpma_"+tissue+".txt", W)
-        np.savetxt("/cbscratch/franco/datasets/gtex/Qcpma_"+tissue+".txt", Q)
-        # if rank == 0: np.savetxt("/cbscratch/franco/tejaas_output/tests/jpanull_scores.txt", jpanull) # for testing purposes
+        np.savetxt(outdir+"/Wcpma_"+tissue+".txt", W)
+        np.savetxt(outdir+"/Qcpma_"+tissue+".txt", Q)
     Zmean = np.mean(zstats, axis = 0)
 
 comm.barrier()

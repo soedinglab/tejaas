@@ -79,7 +79,6 @@ class Args():
         self.fam_file    = args.fam_filename
         self.gx_file     = args.gx_filename
         self.gtf_file    = args.gtf_filename
-        self.method      = args.method
         self.outprefix   = args.outprefix
         if args.incsnps is not None:
             self.startsnp = args.incsnps[0] - 1
@@ -98,7 +97,7 @@ class Args():
         self.window    = args.window
         self.qnullfile = args.qnullfile
 
-        self.jpa, self.rr, self.pms = project.method_selector(args.method)
+        self.jpa, self.rr, self.pms, self.onlyjpa = project.method_selector(args.method)
 
         self.simulate  = args.simulate
         self.simparams = args.simparams

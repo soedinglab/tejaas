@@ -8,7 +8,7 @@ from utils.logs import MyLogger
 
 from statsmodels.distributions.empirical_distribution import ECDF
 
-class JPA:
+class JPAPVALS:
 
     def __init__(self, x, y, Qnull, comm, rank, ncore, qcalc, masks):
         self.gt = x

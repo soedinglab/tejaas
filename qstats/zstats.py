@@ -8,13 +8,15 @@ from utils.logs import MyLogger
 
 class ZSTATS:
 
-    def __init__(self, x, y, comm, rank, ncore):
+    def __init__(self, x, y, comm, rank, ncore, masks = None):
         self.gt = x
         self.gx = y
         self._zstats = None
         self.rank = rank
         self.comm = comm
         self.ncore = ncore
+        self.masks = masks
+        self.usemask = True if masks is not None else False
         self.mpi = False
         if self.ncore > 1:
             self.mpi = True
