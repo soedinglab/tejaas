@@ -203,8 +203,8 @@ class Data():
                     appendmask = False
 
             if endmask:
-                if not appendmask:
-                    snplist.append(i)
+                # if not appendmask:
+                #     snplist.append(i)
                 thismask = CisMask(rmv_id = mask, apply2 = snplist)
                 cismasks.append(thismask)
 
@@ -334,7 +334,7 @@ class Data():
                 donors_user_list = [l.strip() for l in instream.readlines()]
             donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
             expr_donors = [expr_donors[ix] for ix in donors_ix]
-            expression  = expression[:, donors_ix]
+            expression  = rpkm._normalize_expr(expression[:, donors_ix])
 
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
@@ -390,7 +390,7 @@ class Data():
             #snps_masks_lists, compressed_masks = self.compress_cis_masks(cis_masks)
             self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = self.compress_cismasklist(self._cismasklist)
-
+            
         self.normalize_and_center_dosage(dosage_filtered_selected)
 
         #self._gtnorm = self._gtnorm[:, vcfmask]

@@ -52,7 +52,11 @@ class Outhandler:
             for i, x in enumerate(mysnpinfo):
                 f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
         if rr.betas is not None and write_betas:
-            np.savetxt(self.args.outprefix + "_betas" + prefix + ".txt", rr.betas, fmt='%1.4e')
+            betafile = self.args.outprefix + "_betas" + prefix + ".txt"
+            with open(betafile, 'w') as outstream:
+                gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
+                outstream.write(gene_names+"\n")
+                np.savetxt(outstream, rr.betas, fmt='%1.4e')
         select = np.where(rr.pvals < self.args.psnpcut)[0]
         fname = self.args.outprefix + "_gene_snp_list" + prefix + ".txt"
         pvals = jpa.pvals
