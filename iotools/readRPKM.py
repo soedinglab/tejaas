@@ -110,6 +110,13 @@ class ReadRPKM:
         newY = (Y - np.mean(Y, axis = 1).reshape(-1, 1)) / np.std(Y, axis = 1).reshape(-1, 1)
         return newY
 
+    def _quant_normalize_expr(self, Y):
+        from sklearn.preprocessing import normalize
+        from sklearn.preprocessing import QuantileTransformer
+
+        Y_quant = QuantileTransformer(output_distribution='normal').fit_transform(Y.T).T
+        return Y_quant
+
     def _read_gene_expression(self):
         expr_list = list()
         donor_list = list()
@@ -124,6 +131,7 @@ class ReadRPKM:
             raise IOError("{:s}: {:s}".format(self._rpkmfile, err.strerror))
         expression = np.array(expr_list).transpose()
         normexpr = self._normalize_expr(expression)
+        # normexpr = self._normalize_expr(self._quant_normalize_expr(expression))
         self._gene_expression = normexpr
         # self._gene_expression = expression
         self._donor_ids = donor_list

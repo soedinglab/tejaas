@@ -335,6 +335,7 @@ class Data():
             donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
             expr_donors = [expr_donors[ix] for ix in donors_ix]
             expression  = rpkm._normalize_expr(expression[:, donors_ix])
+            # expression  = rpkm._quant_normalize_expr(expression[:, donors_ix])
 
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
@@ -348,11 +349,11 @@ class Data():
 
         # Shuffle genotype?
         if self.args.shuffle:
-            if os.path.isfile(self.args.shuffle_file):
+            if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
                 self.logger.warn("Shuffling genotype using supplied donor IDs")
                 gt_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
             else:
-                logger.warn("Shuffling genotype randomly")
+                self.logger.warn("Shuffling genotype randomly")
                 random.shuffle(gt_donor_ids)
 
         # reorder donors gt and expr

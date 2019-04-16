@@ -52,7 +52,7 @@ void my_cdfnorm( double* X, double* P) {
 
 bool genotype_variance ( double* GT, int nsnp, int nsample, double* SX2, int null );
 bool getSmod( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int nS );
-bool getW(double* U, double* Smod, double* W, int nsample, int nS, int ioff);
+bool getW(double* U, double* Smod, double* W, int nsample, int nS, int ioff, double sx2);
 double vecT_smat_vec ( int n, double* v, double* A, double* D );
 double permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ, int nsample );
 void getWnullmaf ( double* W, double* SM, double* muQmaf, double* sig2Qmaf, double* sumW2nn, int N, int ioff );
@@ -130,7 +130,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	if ( success == false ) goto cleanup;
 
 	if (null == MAF_NULL) {                            /* fixed W for all SNPs with MAF null, because sigmax2 = 1 */
-		success = getW (U, SM, W, nsample, nS, 0);
+		success = getW (U, SM, W, nsample, nS, 0, 1);
 		if ( success == false ) goto cleanup;
 		getWnullmaf ( W, SM, &muQmaf, &sig2Qmaf, &sumW2nn, nS, 0);
 	}
@@ -143,7 +143,7 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 		if (null == NO_NULL ) {
 			// duplicated from PERM_NULL, what should we do by default?
-			success = getW (U, SM, W, nsample, nS, i*nS);
+			success = getW (U, SM, W, nsample, nS, i*nS, SX2[i]);
 			if ( success == false ) goto cleanup;
 			MUQ[i] = -1.0;
 			SIGQ[i] = -1.0;
@@ -152,8 +152,9 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 
 		if (null == PERM_NULL) {                        /* gets W for every SNP if using permutation null, because sigmax2 is not fixed */
 			// Here probably add some check when G < N
-		    // and also multiply by 1/SX2[i] because it is not fixed here
-			success = getW (U, SM, W, nsample, nS, i*nS);
+		    // [X] and also multiply by 1/SX2[i] because it is not fixed here
+		    // DONE!
+			success = getW (U, SM, W, nsample, nS, i*nS, SX2[i]);
 			if ( success == false ) goto cleanup;
 		}
 
@@ -667,7 +668,7 @@ getSmod ( double* S, double* Smod, double* sx2, double* sb2, int nsnp, int nS )
  * =====================================================================================
  */
 	bool
-getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff )
+getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff, double sx2 )
 {
 	for ( int i = 0; i < nsample; i++ ) {
 		for ( int j = 0; j < nS; j++ ) {
@@ -675,6 +676,7 @@ getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff )
 			for ( int k = 0; k < nS; k++ ) {
 				W[ i*nS + j ] += U[ i*nS + k ] * U[ j*nS + k ] * Smod[ ioff + k ];
 			}
+			W[ i*nS + j ] /= sx2;
 		}
 	}
 	return true;
