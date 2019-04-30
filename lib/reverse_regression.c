@@ -19,7 +19,7 @@
  */
 
 #include <stdbool.h>                            /* datatype bool */
-#include <math.h>                               /* sqrt */
+#include <math.h>                               /* sqrt, fabs */
 #include <time.h>
 
 #include "svd.h"
@@ -622,10 +622,15 @@ cdf_norm ( double x, double mu, double sigma )
 	double *P = (double *) calloc( 1 * sizeof( double ), 64);
 	if (P == NULL) {goto cleanup_P;}
 
-	QS[0] = (x - mu) / sigma;
+	/** QS[0] = fabs((x - mu) / sigma); 
 	P[0] = 0;
 	my_cdfnorm( QS, P );
-	pval = 1 - P[0];
+	pval = 2.0 * (1 - P[0]);
+        **/ // we don't need 2-sided p-value
+        QS[0] = (x - mu) / sigma; 
+        P[0] = 0;
+        my_cdfnorm( QS, P );
+        pval = (1 - P[0]);
 	
 	//printf ("M: %g, S: %g, Q: %g, p: %g\n", mu, sigma, x, pval);
 

@@ -23,6 +23,9 @@
 
 import numpy as np
 import os
+from utils.logs import MyLogger
+from sklearn.decomposition import PCA
+
 
 class ReadRPKM:
 
@@ -31,10 +34,12 @@ class ReadRPKM:
     _read_annotation_once = False
 
 
-    def __init__(self, filepath, dataset):
+    def __init__(self, filepath, dataset, npca = 0):
         self._rpkmfile = os.path.realpath(filepath)
         self._dataset = dataset
         self._genenames = None
+        self._npca = npca
+        self.logger = MyLogger(__name__)
 
 
     @property
@@ -131,7 +136,16 @@ class ReadRPKM:
             raise IOError("{:s}: {:s}".format(self._rpkmfile, err.strerror))
         expression = np.array(expr_list).transpose()
         normexpr = self._normalize_expr(expression)
-        # normexpr = self._normalize_expr(self._quant_normalize_expr(expression))
+
+        if self._npca > 0:
+            ## https://stats.stackexchange.com/questions/229092
+            nComp = self._npca
+            self.logger.debug("Using {:d} principal components".format(nComp))
+            pca = PCA()
+            pca.fit(normexpr.T)
+            expr_pcacorr = np.dot(pca.transform(normexpr.T)[:, nComp:], pca.components_[nComp:,:]).T
+            normexpr = self._normalize_expr(expr_pcacorr)
+            
         self._gene_expression = normexpr
         # self._gene_expression = expression
         self._donor_ids = donor_list

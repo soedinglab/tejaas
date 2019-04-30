@@ -90,6 +90,7 @@ class Args():
         self.pgenecut  = args.pgenethres
         self.maf_file  = args.maf_filename
         self.sigmabeta = args.sigmabeta
+        self.npca      = args.npca
         self.jpacut    = args.jpathres
         self.jpafile   = args.jpa_filename
         self.ntransmax = args.optim_ntrans
@@ -275,7 +276,14 @@ class Args():
                             dest='sigmabeta',
                             metavar='FLOAT',
                             help='standard deviation of the normal prior for reverse multiple linear regression')
-    
+
+        parser.add_argument('--npca',
+                            default=5,
+                            type=int,
+                            dest='npca',
+                            metavar='INT',
+                            help='Number of principal components to use for correcting the gene expression')
+        
         parser.add_argument('--jpathres',
                             default=20,
                             type=float,

@@ -5,6 +5,7 @@ import logging
 import time
 import itertools
 import os
+import gc
 import mpi4py
 mpi4py.rc.initialize = False
 mpi4py.rc.finalize = False
@@ -75,6 +76,7 @@ if rank == 0:
     expr = data.expression
     geneinfo = data.geneinfo
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
+#<<<<<<< Updated upstream
     niter = 100000
 else:
     gtnorm = None
@@ -86,6 +88,14 @@ expr    = comm.bcast(expr,  root = 0)
 nchunks = comm.bcast(nchunks, root = 0)
 if rank != 0:
     gt_chunks = [None for i in range(nchunks)]
+#=======
+#    niter = 10000
+#
+#gtnorm = comm.bcast(gtnorm, root = 0)
+#gtcent = comm.bcast(gtcent, root = 0)
+#expr   = comm.bcast(expr,  root = 0)
+#>>>>>>> Stashed changes
+
 snpinfo = comm.bcast(snpinfo, root = 0)
 comm.barrier()
 
@@ -128,7 +138,7 @@ if rank == 0:
     Wsparse = W.copy()
     Wsparse[np.where(W < 0)] = 0
     
-    if not np.allclose(C, Q @ np.diag(W) @ Q.T):
+    if not np.allclose(C, Q @ np.diag(Wsparse) @ Q.T):
         logger.error("Eigen vectors could not be forced to positive")
         exit
     else:

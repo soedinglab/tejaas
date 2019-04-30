@@ -10,4 +10,7 @@ def load(qnull_file):
             l = line.strip().split()
             q = float(l[0].strip())
             qnull.append(q)
-    return np.array(qnull)
+    qnull = np.array(qnull)
+    qmod = qnull[np.isfinite(qnull)]
+    logger.debug("Read {:d} null Q-scores".format(qmod.shape[0]))
+    return qmod
