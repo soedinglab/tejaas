@@ -35,6 +35,8 @@ class JPANULL:
 
 
     def jpascore(self, pvals):
+        min_nonzero = np.min(pvals[np.nonzero(pvals)])
+        pvals[pvals == 0] = min_nonzero
         p = np.sort(pvals)
         n = p.shape[0]
         kmax = min(100, n)

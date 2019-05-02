@@ -323,7 +323,7 @@ class Data():
 
         # Gene Expression
         self.logger.debug("Reading expression levels")
-        rpkm = ReadRPKM(self.args.gx_file, "gtex")
+        rpkm = ReadRPKM(self.args.gx_file, "gtex", npca = self.args.npca)
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
@@ -361,7 +361,9 @@ class Data():
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)
 
+        self.logger.debug("Before expression selection: {:d} genes from {:d} samples".format(expression.shape[0], expression.shape[1]))
         self._expr = expression[:, exprmask][indices, :]
+        self.logger.debug("After expression selection: {:d} genes from {:d} samples".format(indices.shape[0], exprmask.shape[0]))
         self._geneinfo = genes
         dosage_filtered_selected = dosage_filtered[:, vcfmask]
 
