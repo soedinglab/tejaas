@@ -286,7 +286,7 @@ class Data():
             #    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
             #    continue
             newsnps.append(snp)
-            newdosage.append(intdosage)
+            newdosage.append(dosage[i])
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))

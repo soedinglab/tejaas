@@ -134,7 +134,7 @@ if args.rr:
             ohandle = Outhandler(args, snpinfo, geneinfo)
             ohandle.write_rr_out(jpa, rr, prefix = "_it0")
     else:
-        rr.compute()
+        rr.compute(get_betas = False)
 
 if rank == 0: rr_time = time.time()
 
@@ -201,7 +201,7 @@ if rank == 0:
     if args.onlyjpa:
         ohandle.write_jpa_pvals(jpa)
     if args.rr:
-        ohandle.write_rr_out(jpa, rr)
+        ohandle.write_rr_out(jpa, rr, write_betas = True)
     if args.pms:
         ohandle.write_rr_out(jpa, rr_sparse, selected_snps = best_snp_indices, selected_genes = gene_indices, prefix = "_it1")
 
