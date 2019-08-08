@@ -137,17 +137,17 @@ class ReadRPKM:
         expression = np.array(expr_list).transpose()
         normexpr = self._normalize_expr(expression)
 
-        if self._npca > 0:
-            ## https://stats.stackexchange.com/questions/229092
-            nComp = self._npca
-            self.logger.debug("Using {:d} principal components".format(nComp))
-            pca = PCA()
-            pca.fit(normexpr.T)
-            expr_pcacorr = np.dot(pca.transform(normexpr.T)[:, nComp:], pca.components_[nComp:,:]).T
-            normexpr = self._normalize_expr(expr_pcacorr)
+        #if self._npca > 0:
+        #    ## https://stats.stackexchange.com/questions/229092
+        #    nComp = self._npca
+        #    self.logger.debug("Using {:d} principal components".format(nComp))
+        #    pca = PCA()
+        #    pca.fit(normexpr.T)
+        #    expr_pcacorr = np.dot(pca.transform(normexpr.T)[:, nComp:], pca.components_[nComp:,:]).T
+        #    normexpr = self._normalize_expr(expr_pcacorr)
             
         self._gene_expression = normexpr
-        # self._gene_expression = expression
+        #self._gene_expression = expression
         self._donor_ids = donor_list
 
 

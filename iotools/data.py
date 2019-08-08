@@ -2,6 +2,7 @@ import numpy as np
 import scipy.stats as ss
 import random
 import os
+from sklearn.decomposition import PCA
 
 from iotools import simulate
 from iotools import readgtf
@@ -286,7 +287,9 @@ class Data():
             #    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
             #    continue
             newsnps.append(snp)
-            newdosage.append(intdosage)
+            #newdosage.append(intdosage)
+            newdosage.append(dosage[i])
+
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
@@ -298,17 +301,53 @@ class Data():
     def normalize_and_center_dosage(self, dosage):
         f = [snp.maf for snp in self._snpinfo]
         f = np.array(f).reshape(-1, 1)
-        self._gtnorm = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
-        self._gtcent = dosage - np.mean(dosage, axis = 1).reshape(-1, 1)
+        gtnorm = (dosage - (2 * f)) / np.sqrt(2 * f * (1 - f))
+        gtcent = dosage - np.mean(dosage, axis = 1).reshape(-1, 1)
+        return gtnorm, gtcent
+
+
+    def knn_correction(self, expr, dosage):
+        pca = PCA(n_components=min(expr.shape[0], expr.shape[1]))
+        self.logger.debug("Original dimension: {:d} x {:d}".format(expr.shape[0], expr.shape[1]))
+        pca.fit(expr) # requires N x G
+        expr_pca = pca.transform(expr)
+        self.logger.debug("Reduced dimension: {:d} x {:d}".format(expr_pca.shape[0], expr_pca.shape[1]))
+    
+        def gene_distance(a, b):
+            return np.linalg.norm(a - b)
+    
+        nsample = expr.shape[0]
+        distance_matrix = np.zeros((nsample, nsample))
+        for i in range(nsample):
+            for j in range(i+1, nsample):
+                dist = gene_distance(expr_pca[i,:], expr_pca[j,:])
+                distance_matrix[i, j] = dist
+                distance_matrix[j, i] = dist
+    
+        kneighbor = 30
+        gx_knn = np.zeros_like(expr)
+        gt_knn = np.zeros_like(dosage)
+        neighbor_list = list()
+    
+        for i in range(nsample):
+            neighbors = np.argsort(distance_matrix[i, :])[:kneighbor + 1][1:]
+            gx_knn[i, :] = expr[i, :] - np.mean(expr[neighbors, :], axis = 0)
+            #noisy_neighbors = np.random.choice(neighbors, size = int(2 * kneighbor / 3), replace = False)
+            #noisy_neighbors = np.random.choice(neighbors, size = kneighbor, replace = True )
+            noisy_neighbors = neighbors
+            gt_knn[:, i] = dosage[:, i] - np.mean(dosage[:, noisy_neighbors], axis = 1)
+            neighbor_list.append(neighbors)
+    
+        return gx_knn, gt_knn
 
 
     def load(self):
-        # Read Oxford File
-        if self.args.oxf_file:
-            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage)
-            dosage = oxf.dosage
-            gt_donor_ids = oxf.samplenames
-            snpinfo = oxf.snpinfo
+        ## Read Oxford File
+        #if self.args.oxf_file:
+        #    oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage)
+        #    dosage = oxf.dosage
+        #    gt_donor_ids = oxf.samplenames
+        #    snpinfo = oxf.snpinfo
 
         # Read VCF file
         if self.args.vcf_file:
@@ -328,14 +367,14 @@ class Data():
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
 
-        if self.args.selected_donors:
-            self.logger.debug("Selecting samples from user supplied list")
-            with open(self.args.selected_donors) as instream:
-                donors_user_list = [l.strip() for l in instream.readlines()]
-            donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
-            expr_donors = [expr_donors[ix] for ix in donors_ix]
-            expression  = rpkm._normalize_expr(expression[:, donors_ix])
-            # expression  = rpkm._quant_normalize_expr(expression[:, donors_ix])
+        #if self.args.selected_donors:
+        #    self.logger.debug("Selecting samples from user supplied list")
+        #    with open(self.args.selected_donors) as instream:
+        #        donors_user_list = [l.strip() for l in instream.readlines()]
+        #    donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
+        #    expr_donors = [expr_donors[ix] for ix in donors_ix]
+        #    expression  = rpkm._normalize_expr(expression[:, donors_ix])
+        #    # expression  = rpkm._quant_normalize_expr(expression[:, donors_ix])
 
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
@@ -348,25 +387,25 @@ class Data():
             gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
 
         # Shuffle genotype?
-        if self.args.shuffle:
-            if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
-                self.logger.warn("Shuffling genotype using supplied donor IDs")
-                gt_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
-            else:
-                self.logger.warn("Shuffling genotype randomly")
-                random.shuffle(gt_donor_ids)
+        #if self.args.shuffle:
+        #    if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
+        #        self.logger.warn("Shuffling genotype using supplied donor IDs")
+        #        gt_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
+        #    else:
+        #        self.logger.warn("Shuffling genotype randomly")
+        #        random.shuffle(gt_donor_ids)
 
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
+        self.logger.debug("Before expression selection: {:d} genes from {:d} samples".format(expression.shape[0], expression.shape[1]))
+
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)
-
-        self.logger.debug("Before expression selection: {:d} genes from {:d} samples".format(expression.shape[0], expression.shape[1]))
-        self._expr = expression[:, exprmask][indices, :]
-        self.logger.debug("After expression selection: {:d} genes from {:d} samples".format(indices.shape[0], exprmask.shape[0]))
-        self._geneinfo = genes
+        expression_selected = expression[:, exprmask][indices, :]
         dosage_filtered_selected = dosage_filtered[:, vcfmask]
+        self._geneinfo = genes
 
+        self.logger.debug("After expression selection: {:d} genes from {:d} samples".format(indices.shape[0], exprmask.shape[0]))
         self.logger.debug("Retained {:d} samples".format(vcfmask.shape[0]))
 
         ### Until here, all filters have been applied and geneinfo and snpinfo reflect current data ###
@@ -376,28 +415,49 @@ class Data():
         #     if g.start > genes[i+1].start and g.chrom == genes[i+1].chrom:
         #         print(g, genes[i+1])
 
-        if self.args.forcetrans:
-            self.logger.debug("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
-            ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom != self.args.chrom])
-            self._expr = self._expr[ix2keep, :]
-            self._geneinfo = [self._geneinfo[i] for i in ix2keep]
-        elif self.args.forcecis:
-            self.logger.debug("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
-            ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom == self.args.chrom])
-            self._expr = self._expr[ix2keep, :]
-            self._geneinfo = [self._geneinfo[i] for i in ix2keep]
+        #if self.args.forcetrans:
+        #    self.logger.debug("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
+        #    ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom != self.args.chrom])
+        #    self._expr = self._expr[ix2keep, :]
+        #    self._geneinfo = [self._geneinfo[i] for i in ix2keep]
+        #elif self.args.forcecis:
+        #    self.logger.debug("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
+        #    ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom == self.args.chrom])
+        #    self._expr = self._expr[ix2keep, :]
+        #    self._geneinfo = [self._geneinfo[i] for i in ix2keep]
+
+
+        #self._expr = rpkm._normalize_expr(expression_selected) / np.sqrt(expression_selected.shape[1])
+        self._expr = expression_selected
+        self._gtnorm, self._gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
+
+        if self.args.knncorr:
+            self.logger.debug("Applying kNN correction on gene expression and genotype")
+            #expression_normalized = rpkm._normalize_expr(expression_selected)
+            #gx_corr, gt_corr = self.knn_correction(expression_normalized.T, dosage_filtered_selected)
+            gx_corr, gt_corr = self.knn_correction(expression_selected.T, dosage_filtered_selected)
+            self._expr = rpkm._normalize_expr(gx_corr.T) #/ np.sqrt(gx_corr.shape[0]) 
+            self._gtnorm, self._gtcent = self.normalize_and_center_dosage(gt_corr)
+
+        if self.args.shuffle:
+            usedmask = [gt_donor_ids[i] for i in vcfmask]
+            if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
+                self.logger.warn("Shuffling genotype using supplied donor IDs")
+                rand_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
+            else:
+                self.logger.warn("Shuffling genotype randomly")
+                rand_donor_ids = usedmask.copy()
+                random.shuffle(rand_donor_ids)
+            rand_index = np.array([usedmask.index(x) for x in rand_donor_ids])
+            self._gtnorm = self._gtnorm[:, rand_index]
+            self._gtcent = self._gtcent[:, rand_index]
+
 
         if self.args.cismasking:
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
-            #cis_masks = self.get_cismaskcomp(self._snpinfo, self._geneinfo, self.args.chrom)
-            #snps_masks_lists, compressed_masks = self.compress_cis_masks(cis_masks)
             self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = self.compress_cismasklist(self._cismasklist)
             
-        self.normalize_and_center_dosage(dosage_filtered_selected)
-
-        #self._gtnorm = self._gtnorm[:, vcfmask]
-        #self._gtcent = self._gtcent[:, vcfmask]
 
     def simulate(self):
 

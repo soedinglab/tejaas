@@ -91,6 +91,7 @@ class Args():
         self.maf_file  = args.maf_filename
         self.sigmabeta = args.sigmabeta
         self.npca      = args.npca
+        self.knncorr   = args.knncorr
         self.jpacut    = args.jpathres
         self.jpafile   = args.jpa_filename
         self.ntransmax = args.optim_ntrans
@@ -278,11 +279,16 @@ class Args():
                             help='standard deviation of the normal prior for reverse multiple linear regression')
 
         parser.add_argument('--npca',
-                            default=5,
+                            default=0,
                             type=int,
                             dest='npca',
                             metavar='INT',
                             help='Number of principal components to use for correcting the gene expression')
+
+        parser.add_argument('--knn',
+                            dest='knncorr',
+                            action='store_true',
+                            help='whether to apply KNN correction on the data')
         
         parser.add_argument('--jpathres',
                             default=20,
