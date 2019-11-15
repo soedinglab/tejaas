@@ -74,7 +74,10 @@ class ReadVCF:
                 else:
                     if linenum >= self._startsnp and linenum < self._endsnp:
                         linesplit = linestrip.split("\t")
-                        chrom = int(linesplit[0])
+                        if linesplit[0].startswith('chr'):
+                            chrom = int(linesplit[0][3:])
+                        else:
+                            chrom = int(linesplit[0])
                         pos   = int(linesplit[1])
                         varid = linesplit[2]
                         ref   = linesplit[3]
@@ -114,6 +117,7 @@ class ReadVCF:
 
                         dosage.append(snpdosage)
                         snpinfo.append(this_snp)
+                    if linenum > self._endsnp: break
                     linenum += 1
 
         self._dosage = np.array(dosage)

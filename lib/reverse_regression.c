@@ -532,6 +532,8 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 	double gtmu2  = second_moment(X, nsample);
 	double gtmu4  = fourth_moment(X, nsample);
 
+        double myq01, myq02, myq03, myq04, myq05;
+
 
 	for( int i=0; i < N; i++ ){
 		q2 += W[ i*N + i ];
@@ -541,9 +543,9 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 		for( int j=0; j < N; j++ ){
 			q11 += W[ i*N + j ];
 			q22 += W[ i*N + j ] * W[ i*N + j ];
-			q211_inner = W[ i*N + j ];
+			q211_inner += W[ i*N + j ];
 		}
-
+                //printf("%20.13f\n", q211_inner);
 		q31_right[i] = q211_inner;
 		q31_left [i] = W[ i*N + i ];
 		q211 += q211_inner * q211_inner;
@@ -567,10 +569,11 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 	// Due to some numerical error with large sig_b, the variance can be negative, small fix
 	if (sig2 < 0) {
-		sig2 = abs(sig2);
+		sig2 = -sig2;
 	}
 
 	*sigQ = sqrt(sig2);  // sometimes this turns out -nan
+        //printf ("Qvar, Qstd: %g, %g\n", sig2, *sigQ);
 	pval = cdf_norm (Q, *muQ, *sigQ);
 
 

@@ -274,7 +274,7 @@ class Data():
                 nunkn += 1
                 continue
             # Skip low MAF
-            if not (maf >= 0.10 and maf <=0.90):
+            if not (maf >= 0.01 and maf <=0.99):
                 nlowf += 1
                 continue
             # Convert to integers 0, 1 or 2
@@ -293,7 +293,7 @@ class Data():
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
-        self.logger.debug("Removed {:d} SNPs because of low MAF < 0.10".format(nlowf))
+        self.logger.debug("Removed {:d} SNPs because of low MAF < 0.01".format(nlowf))
         self.logger.debug("Removed {:d} SNPs because of deviation from HWE".format(nhwep))
         return newsnps, np.array(newdosage)
 
@@ -448,7 +448,7 @@ class Data():
                 self.logger.warn("Shuffling genotype randomly")
                 rand_donor_ids = usedmask.copy()
                 random.shuffle(rand_donor_ids)
-            rand_index = np.array([usedmask.index(x) for x in rand_donor_ids])
+            rand_index = np.array([usedmask.index(x) for x in rand_donor_ids if x in usedmask])
             self._gtnorm = self._gtnorm[:, rand_index]
             self._gtcent = self._gtcent[:, rand_index]
 
