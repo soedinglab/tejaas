@@ -125,6 +125,9 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	if ( success == false ) goto cleanup;
 
 	success = genotype_variance(GT, nsnp, nsample, SX2, null);
+	/*for (int i = 0; i < nsnp; i++) {
+		SX2[i] = 0.35;
+	}*/
 
 	success = getSmod (S, SM, SX2, SB2, nsnp, nS);
 	if ( success == false ) goto cleanup;
@@ -541,7 +544,7 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 		for( int j=0; j < N; j++ ){
 			q11 += W[ i*N + j ];
 			q22 += W[ i*N + j ] * W[ i*N + j ];
-			q211_inner = W[ i*N + j ];
+			q211_inner += W[ i*N + j ];
 		}
 
 		q31_right[i] = q211_inner;
@@ -567,7 +570,8 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 	// Due to some numerical error with large sig_b, the variance can be negative, small fix
 	if (sig2 < 0) {
-		sig2 = abs(sig2);
+		printf("Warning: negative sigQ: %f", sig2);
+		sig2 = -sig2;
 	}
 
 	*sigQ = sqrt(sig2);  // sometimes this turns out -nan

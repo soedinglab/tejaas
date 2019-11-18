@@ -25,6 +25,7 @@ import numpy as np
 import os
 from utils.logs import MyLogger
 from sklearn.decomposition import PCA
+import pandas as pd
 
 
 class ReadRPKM:
@@ -112,6 +113,15 @@ class ReadRPKM:
         return expr_list, donor_list
 
     def _normalize_expr(self, Y):
+        if isinstance(Y, pd.DataFrame):
+            Y_cent = (Y.values - np.mean(Y.values, axis = 1).reshape(-1, 1)) / np.std(Y.values, axis = 1).reshape(-1, 1)
+            Y_cent = pd.DataFrame(Y_cent, index=Y.index, columns=Y.columns)
+            Y_cent.index.name = Y.index.name
+        else:
+            Y_cent = (Y - np.mean(Y, axis = 1).reshape(-1, 1)) / np.std(Y, axis = 1).reshape(-1, 1)
+        return Y_cent
+
+    def _normalize_expr_old(self, Y):
         newY = (Y - np.mean(Y, axis = 1).reshape(-1, 1)) / np.std(Y, axis = 1).reshape(-1, 1)
         return newY
 
@@ -137,17 +147,16 @@ class ReadRPKM:
         expression = np.array(expr_list).transpose()
         normexpr = self._normalize_expr(expression)
 
-        if self._npca > 0:
-            ## https://stats.stackexchange.com/questions/229092
-            nComp = self._npca
-            self.logger.debug("Using {:d} principal components".format(nComp))
-            pca = PCA()
-            pca.fit(normexpr.T)
-            expr_pcacorr = np.dot(pca.transform(normexpr.T)[:, nComp:], pca.components_[nComp:,:]).T
-            normexpr = self._normalize_expr(expr_pcacorr)
+        # if self._npca > 0:
+        #     ## https://stats.stackexchange.com/questions/229092
+        #     nComp = self._npca
+        #     self.logger.debug("Using {:d} principal components".format(nComp))
+        #     pca = PCA()
+        #     pca.fit(expression.T)
+        #     expr_pcacorr = np.dot(pca.transform(expression.T)[:, nComp:], pca.components_[nComp:,:]).T
+        #     expression = expr_pcacorr
             
         self._gene_expression = normexpr
-        # self._gene_expression = expression
         self._donor_ids = donor_list
 
 

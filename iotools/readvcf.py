@@ -20,6 +20,8 @@
 
 import numpy as np
 import gzip
+import os
+import re
 from utils.containers import SnpInfo
 
 class ReadVCF:
@@ -28,12 +30,15 @@ class ReadVCF:
     _read_genotype_once = False
 
 
-    def __init__(self, filepath, startsnp, endsnp, mode="DS"):
+    def __init__(self, filepath, startsnp, endsnp, mode="DS", samplefile=None):
         self._filepath = filepath
         self._startsnp = startsnp
         self._endsnp = endsnp
         self._mode = mode
-
+        if samplefile is not None:
+            self._samplefile = samplefile
+        else:
+            self._samplefile = ""
 
     @property
     def snpinfo(self):
@@ -50,15 +55,30 @@ class ReadVCF:
     @property
     def donor_ids(self):
         self._run_once()
-        return tuple(self._donor_ids)
+        return self._donor_ids
 
 
     def _run_once(self):
         if self._read_genotype_once:
             return
         self._read_genotype_once = True
+        self._read_samples()
         self._read_dosage()
 
+    def _read_samples(self):
+        if os.path.exists(self._samplefile):
+            with open(self._samplefile, 'r') as samfile:
+                sample = 0
+                samplenames = list()
+                next(samfile)
+                next(samfile)
+                for line in samfile:
+                    if re.search('^#', line):
+                        continue
+                    sample += 1
+                    samplenames.append(line.strip().split()[0])
+            self._nsample = sample
+            self._samplenames = samplenames
 
     def _read_dosage(self):
         dosage = list()
@@ -74,23 +94,32 @@ class ReadVCF:
                 else:
                     if linenum >= self._startsnp and linenum < self._endsnp:
                         linesplit = linestrip.split("\t")
-                        chrom = int(linesplit[0])
+                        if linesplit[0].startswith("chr"):
+                            chrom = int(linesplit[0][3:])
+                        else:
+                            chrom = int(linesplit[0])
                         pos   = int(linesplit[1])
                         varid = linesplit[2]
                         ref   = linesplit[3]
                         alt   = linesplit[4]
 
                         if self._mode == "DS":
-                            dsindx = linesplit[8].split(':').index("DS")
-                            ds = [x.split(':')[dsindx] for x in linesplit[9:]]
-                            gtindx = linesplit[8].split(':').index("GT")
-                            for i, x in enumerate(ds):
-                                if x == ".":
-                                    gt = linesplit[9+i].split(':')[gtindx]
-                                    if len(gt) == 3 and gt[0] != "." and gt[2] != ".":
-                                        ds[i] = float(int(gt[0]) + int(gt[2]))
+                            if "DS" not in linesplit[8].split(':'):
+                                self._mode = "GT"
+                            else:
+                                dsindx = linesplit[8].split(':').index("DS")
+                                ds = [x.split(':')[dsindx] for x in linesplit[9:]]
+                                gtindx = linesplit[8].split(':').index("GT")
+                                for i, x in enumerate(ds):
+                                    if x == ".":
+                                        gt = linesplit[9+i].split(':')[gtindx]
+                                        if len(gt) == 3 and gt[0] != "." and gt[2] != ".":
+                                            ds[i] = float(int(gt[0]) + int(gt[2]))
 
-                        elif self._mode == "GT":
+                        if self._mode == "GT":
+                            if "GT" not in linesplit[8].split(':'):
+                                print("ERROR: no GT field in VCF file")
+                                raise
                             gtindx = linesplit[8].split(':').index("GT")
                             gt = [x.split(':')[gtindx] for x in linesplit[9:]]
                             ds = [ float(int(x[0]) + int(x[2])) if len(x) == 3 and x[0] != "." and x[2] != "." else "." for x in gt ]
@@ -116,6 +145,14 @@ class ReadVCF:
                         snpinfo.append(this_snp)
                     linenum += 1
 
-        self._dosage = np.array(dosage)
-        self._snpinfo = snpinfo
-        self._donor_ids = donor_ids
+        if os.path.exists(self._samplefile):
+            common_ids = [x for x in self._samplenames if x in donor_ids]
+            print("GT Sample selection {:d} samples were retained from a total of {:d} samples".format(len(common_ids), len(donor_ids)))
+            ix = [donor_ids.index(x) for x in common_ids]
+            self._dosage = np.array(dosage)[:,ix]
+            self._snpinfo = snpinfo
+            self._donor_ids = common_ids
+        else:
+            self._dosage = np.array(dosage)
+            self._snpinfo = snpinfo
+            self._donor_ids = donor_ids

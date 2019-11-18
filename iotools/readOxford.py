@@ -121,7 +121,7 @@ class ReadOxford:
                             raise SAMPLE_NUMBER_ERROR;
                     else:
                         self.logger.error('Number of columns in genotype frequencies not divisible by 3')
-                        raise GT_FREQS_ERROR;
+                        raise GT_FREQS_NUMBER_ERROR;
 
                     if self._isdosage:
                         snp_dosage = np.array([float(x) for x in mline[self._meta_columns:]])

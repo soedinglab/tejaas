@@ -5,6 +5,10 @@ import os
 from utils.logs import MyLogger
 logger = MyLogger(__name__)
 
+import mpmath
+mpmath.mp.dps = 500
+def pval(x): return float(1 - 0.5 * (1 + mpmath.erf(x/mpmath.sqrt(2))))
+
 class Outhandler:
 
     def __init__(self, args, snpinfo, geneinfo):
@@ -48,9 +52,11 @@ class Outhandler:
             mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
         fname = self.args.outprefix + "_rr" + prefix + ".txt"
         with open(fname, "w") as f:
-            f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P'))
+            f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P', 'CHR', 'MAF'))
             for i, x in enumerate(mysnpinfo):
-                f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
+                if rr.pvals[i] == 0:
+                    rr.pvals[i] = pval( (rr.scores[i] - rr.null_mu[i]) / rr.null_sigma[i])
+                f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\t{:d}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i], x.chrom, x.maf))
         if rr.betas is not None and write_betas:
             betafile = self.args.outprefix + "_betas" + prefix + ".txt"
             with open(betafile, 'w') as outstream:

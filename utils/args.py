@@ -66,6 +66,7 @@ class Args():
         self.cismasking  = args.cismasking
 
         self.shuffle        = args.shuffle
+        self.shuffle_special= args.shuffle_special
         self.shuffle_file   = args.shuffle_file
         if self.shuffle_file is not None:
             self.shuffle = True
@@ -97,6 +98,9 @@ class Args():
         self.nullmodel = args.nullmodel
         self.window    = args.window
         self.qnullfile = args.qnullfile
+        self.knn       = args.knn
+        self.magic_sqrt= args.magic_sqrt
+        self.dynamic   = args.dynamic
 
         self.jpa, self.rr, self.pms, self.onlyjpa = project.method_selector(args.method)
 
@@ -166,6 +170,11 @@ class Args():
                             dest='shuffle',
                             action='store_true',
                             help='Shuffle the genotypes randomly')
+
+        parser.add_argument('--shuffle-special',
+                            dest='shuffle_special',
+                            action='store_true',
+                            help='Shuffle the genotypes randomly before (!) KNN')
 
         parser.add_argument('--shuffle-with',
                             type=str,
@@ -278,7 +287,7 @@ class Args():
                             help='standard deviation of the normal prior for reverse multiple linear regression')
 
         parser.add_argument('--npca',
-                            default=5,
+                            default=0,
                             type=int,
                             dest='npca',
                             metavar='INT',
@@ -329,6 +338,26 @@ class Args():
                             type = str,
                             dest = 'qnullfile',
                             help = 'Filename for storing / reading null JPA scores')
+
+        parser.add_argument('--knn',
+                            type = int,
+                            dest = 'knn',
+                            help = 'Number of neighbours for KNN (0 means don\'t use KNN)',
+                            default = 0)
+
+        parser.add_argument('--magic_sqrt',
+                            action='store_true', 
+                            help='use magic sqrt correction on gene expression (?)',
+                            dest='magic_sqrt')
+
+        parser.set_defaults(magic_sqrt=False)
+
+        parser.add_argument('--dynamic',
+                            action='store_true', 
+                            help='Dynamically adjust sigma_beta for each SNP',
+                            dest='dynamic')
+
+        parser.set_defaults(dynamic=False)
 
         res = parser.parse_args()
         return res

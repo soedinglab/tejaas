@@ -121,7 +121,17 @@ if args.jpa and args.rr:
     #broadcast this new genotype
 
 if args.rr:
-    sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
+
+    if args.dynamic:
+        logger.debug("-- DINAMICALLY ADJUSTING SIGMA BETA -- ")
+        # adjust sigma_beta2 for each SNP (aprox)
+        Yt = expr.T
+        U, S, Vt  = np.linalg.svd(Yt, full_matrices=False)
+        sigmax2   = np.var(gtnorm, axis = 1)
+        S2_median = np.median(np.square(S))
+        sigbeta2  = sigmax2 / S2_median
+    else:
+        sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
 
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
@@ -143,8 +153,8 @@ if args.pms:
     best_snp_indices = None
     gene_indices     = None
     if rank == 0:
-        best_snp_indices = rr.select_best_SNPs(pval_thres = 1e-2, use_pvals = True)
-        gene_indices     = rr.select_best_genes(rr.betas[best_snp_indices,:], n=1000)
+        best_snp_indices = rr.select_best_SNPs(pval_thres = 1e-6, use_pvals = True)
+        gene_indices     = rr.select_best_genes(rr.betas[best_snp_indices,:], n=100)
     gene_indices     = comm.bcast(gene_indices, root = 0)
     best_snp_indices = comm.bcast(best_snp_indices, root = 0)
     comm.barrier()
