@@ -29,6 +29,28 @@ def timeit(f):
         return result
     return wrap
 
+def optimize_sb2(S, sigmasx, target):
+    ts = time.time()
+    sbetas = list()
+    S2 = np.square(S)
+    S2_lim = np.percentile(S2, 50)
+    for sx2 in sigmasx:
+        sb2 =  sx2 / S2_lim       # start parameter at median
+        S2mod = S2 + (sx2 / sb2)
+        N = len(S2)
+        Keff = np.sum(S2/S2mod) / N
+
+        while np.abs(Keff - target) > 0.01:
+            diff = Keff - target
+            sb2 -= diff*(sb2)
+            S2mod = S2 + (sx2 / sb2)
+            Keff = np.sum(S2/S2mod) / N
+        #print("Keff",Keff)
+        #print("SB2=",sb2)
+        sbetas.append(sb2)
+    te = time.time()
+    print('{:s} took: {:.6f} seconds'.format("optimize_sb2", te-ts))
+    return(np.array(sbetas))
 
 class Data():
 
@@ -71,8 +93,9 @@ class Data():
     def expression(self):
         return self._expr
 
-    def knn_correction(self, expr, dosage, K):
-        pca = PCA(n_components=min(expr.shape[0], expr.shape[1]))
+    def knn_correction(self, expr, dosage, K, f=0.1):
+        # pca = PCA(n_components=int(f * min(expr.shape[0], expr.shape[1]) ))
+        pca = PCA(n_components=min(expr.shape[0], expr.shape[1]) )
         self.logger.debug("Original dimension: {:d} x {:d}".format(expr.shape[0], expr.shape[1]))
         pca.fit(expr) # requires N x G
         expr_pca = pca.transform(expr)
@@ -403,7 +426,7 @@ class Data():
 
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)       
-        self._expr = expression[:, exprmask][indices, :]
+        self._expr = rpkm._normalize_expr(expression[:, exprmask][indices, :])
         self._geneinfo = genes
 
         # dosage_filtered_selected = dosage_filtered[:, vcfmask]
@@ -467,6 +490,7 @@ class Data():
             self._gtnorm = self._gtnorm[:, rand_index]
             self._gtcent = self._gtcent[:, rand_index]
 
+            
         # # Shuffle genotype?
         # if self.args.shuffle:
         #     if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):

@@ -18,6 +18,7 @@ from qstats.revreg import RevReg
 from qstats.jpa_pvals import JPAPVALS
 
 from iotools.data import Data
+from iotools.data import optimize_sb2
 from iotools.outhandler import Outhandler
 from iotools import readmaf
 from iotools import readqnull
@@ -123,14 +124,27 @@ if args.jpa and args.rr:
 if args.rr:
 
     if args.dynamic:
-        logger.debug("-- DINAMICALLY ADJUSTING SIGMA BETA -- ")
+        if rank == 0:
+            logger.debug("-- DINAMICALLY ADJUSTING SIGMA BETA | Target: {:f}-- ".format(args.dynamic))
         # adjust sigma_beta2 for each SNP (aprox)
         Yt = expr.T
         U, S, Vt  = np.linalg.svd(Yt, full_matrices=False)
-        sigmax2   = np.var(gtnorm, axis = 1)
-        S2_median = np.median(np.square(S))
-        sigbeta2  = sigmax2 / S2_median
+        sigmax2   = np.var(gtcent, axis = 1)
+        
+        sigbeta2 = optimize_sb2(S, sigmax2, args.dynamic)
+
+        _S2 = np.square(S)
+        _S2mod = _S2 + (sigmax2[0] / sigbeta2[0])
+        Keff = np.sum(_S2/_S2mod) / len(_S2)
+        if rank == 0:
+            logger.debug("Current Keff @ {:f}".format(Keff))
+    elif args.mml is not None:
+        if rank == 0:
+            logger.debut("SIGMA BETA OPTIMIZED BY MML")
+        sigbeta2 = [None for x in gtnorm.shape[0]]
     else:
+        if rank == 0:
+            logger.debut("SIGMA BETA FIXED TO {:g}".format(args.sigmabeta))
         sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
 
     if args.nullmodel == 'maf':

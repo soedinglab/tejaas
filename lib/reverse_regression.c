@@ -125,9 +125,6 @@ qscore ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, 
 	if ( success == false ) goto cleanup;
 
 	success = genotype_variance(GT, nsnp, nsample, SX2, null);
-	/*for (int i = 0; i < nsnp; i++) {
-		SX2[i] = 0.35;
-	}*/
 
 	success = getSmod (S, SM, SX2, SB2, nsnp, nS);
 	if ( success == false ) goto cleanup;
@@ -688,6 +685,7 @@ getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff, double
 			W[ i*nS + j ] /= sx2;
 		}
 	}
+
 	return true;
 }		/* -----  end of function getW  ----- */
 

@@ -147,7 +147,7 @@ class ReadVCF:
 
         if os.path.exists(self._samplefile):
             common_ids = [x for x in self._samplenames if x in donor_ids]
-            print("GT Sample selection {:d} samples were retained from a total of {:d} samples".format(len(common_ids), len(donor_ids)))
+            print("GT Sample selection: {:d} samples were retained from a total of {:d} samples".format(len(common_ids), len(donor_ids)))
             ix = [donor_ids.index(x) for x in common_ids]
             self._dosage = np.array(dosage)[:,ix]
             self._snpinfo = snpinfo

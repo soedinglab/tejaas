@@ -101,6 +101,7 @@ class Args():
         self.knn       = args.knn
         self.magic_sqrt= args.magic_sqrt
         self.dynamic   = args.dynamic
+        self.mml       = args.mml
 
         self.jpa, self.rr, self.pms, self.onlyjpa = project.method_selector(args.method)
 
@@ -353,11 +354,20 @@ class Args():
         parser.set_defaults(magic_sqrt=False)
 
         parser.add_argument('--dynamic',
-                            action='store_true', 
+                            default=None,
+                            type=float,
                             help='Dynamically adjust sigma_beta for each SNP',
                             dest='dynamic')
 
         parser.set_defaults(dynamic=False)
+
+        parser.add_argument('--mml',
+                            action='store_true', 
+                            default=None,
+                            help='Optimize sigmabeta2 parameter by MML',
+                            dest='mml')
+
+        parser.set_defaults(mml=False)
 
         res = parser.parse_args()
         return res
