@@ -87,27 +87,6 @@ else:
     jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
     jpa.compute()
 
-##### NULL for JPA
-# if rank == 0: jpanull_time = time.time()
-# rand_gtnorm = gtnorm.copy()
-# jpanull = None
-# for i in range(333):
-#     np.random.shuffle(rand_gtnorm.T)
-#     jpa_null = JPA(rand_gtnorm, expr, comm, rank, ncore, args.jpa, masklist)
-#     jpa_null.compute()
-#     if rank == 0:
-#         if jpanull is not None:
-#             jpanull = np.vstack((jpanull, jpa_null.scores))
-#         else:
-#             jpanull = jpa_null.scores
-# if rank == 0: jpanull_endtime = time.time()
-# if rank == 0: logger.info("JPA Null calculation time: {:g} seconds".format (jpanull_endtime - jpanull_time))
-# if rank == 0: print(jpanull.shape) # times x qscores
-
-# if rank == 0: np.savetxt("/cbscratch/franco/tejaas_output/tests/jpanull_scores.txt", jpanull) # for testing purposes
-# 2019-03-05 21:08:24,372 | __main__ | INFO | JPA Null calculation time: 8886.86 seconds
-##### End of NULL for JPA
-
 if rank == 0: jpa_time = time.time()
 
 # # Select the SNPs with JPA score above threshold for RevReg
@@ -130,7 +109,6 @@ if args.rr:
         Yt = expr.T
         U, S, Vt  = np.linalg.svd(Yt, full_matrices=False)
         sigmax2   = np.var(gtcent, axis = 1)
-        
         sigbeta2 = optimize_sb2(S, sigmax2, args.dynamic)
 
         _S2 = np.square(S)
@@ -152,73 +130,10 @@ if args.rr:
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
 
-    if args.pms:
-        rr.compute(get_betas = True)
-        if rank == 0:
-            ohandle = Outhandler(args, snpinfo, geneinfo)
-            ohandle.write_rr_out(jpa, rr, prefix = "_it0")
-    else:
-        rr.compute(get_betas = False)
+    rr.compute(get_betas = False)
 
 if rank == 0: rr_time = time.time()
 
-if args.pms:
-    ###### New implementation of sparsity and null model calculation
-    best_snp_indices = None
-    gene_indices     = None
-    if rank == 0:
-        best_snp_indices = rr.select_best_SNPs(pval_thres = 1e-6, use_pvals = True)
-        gene_indices     = rr.select_best_genes(rr.betas[best_snp_indices,:], n=100)
-    gene_indices     = comm.bcast(gene_indices, root = 0)
-    best_snp_indices = comm.bcast(best_snp_indices, root = 0)
-    comm.barrier()
-
-    if len(best_snp_indices):
-        logger.debug("Prunning {:d} masks".format(len(maskcomp)))
-        newmasks = rr.prune_masks(maskcomp, list(best_snp_indices))
-        logger.debug("Got {:d} pruned masks".format(len(newmasks)))
-        
-        stime = time.time()
-        qnull = None
-        if args.nullmodel == 'perm':
-            gt   = gtcent[best_snp_indices,:]
-
-        sb2        = sigbeta2[best_snp_indices]
-        sb2_sparse = np.repeat(0.05 ** 2, len(best_snp_indices))
-        for i in range(1000):
-            # THIS IS WRONG: each core shuffles whatever
-            np.random.shuffle(gt.T)
-            if rank == 0: logger.debug(str(rank) + ":---> computing rr for null")
-            rr_null = RevReg(gt, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = newmasks)
-            rr_null.compute(get_betas = True)
-
-            null_gene_indices = None
-            if rank == 0:
-                null_gene_indices = rr_null.select_best_genes(rr_null.betas, n=1000)
-            null_gene_indices = comm.bcast(null_gene_indices, root = 0)
-            comm.barrier()
-
-            rr_null.sb2 = sb2_sparse
-            if rank == 0: logger.debug("---> computing rr for sparse null")
-            rr_null.compute_sparse(null_gene_indices, get_betas = False)
-
-            if rank == 0:
-                if qnull is not None:
-                    qnull = np.vstack((qnull, rr_null.scores))
-                else:
-                    qnull = rr_null.scores
-            qnull = comm.bcast(qnull, root = 0)
-
-        #np.savetxt("/cbscratch/franco/tejaas_output/tests/qnull_scores.txt", qnull) # for testing purposes
-        logger.debug("TIME-->MPIcompute_null took {:g} seconds".format(time.time() - stime))
-        
-        logger.debug("---> computing rr for sparse")
-        rr_sparse = RevReg(gtcent[best_snp_indices,:], expr, sb2_sparse, comm, rank, ncore, null = args.nullmodel, maf = maf[best_snp_indices], masks = newmasks)
-        rr_sparse.compute_sparse(gene_indices, qnull, get_betas = False)
-        ##### end
-
-if rank == 0: pms_time = time.time()
- 
 # Output handling only from master node // move it to module
 if rank == 0: 
     ohandle = Outhandler(args, snpinfo, geneinfo)
@@ -226,8 +141,6 @@ if rank == 0:
         ohandle.write_jpa_pvals(jpa)
     if args.rr:
         ohandle.write_rr_out(jpa, rr, write_betas = True)
-    if args.pms:
-        ohandle.write_rr_out(jpa, rr_sparse, selected_snps = best_snp_indices, selected_genes = gene_indices, prefix = "_it1")
 
 if rank == 0: write_time = time.time()
 
@@ -235,7 +148,6 @@ if rank == 0:
     logger.info("File reading time: {:g} seconds".format(read_time - start_time))
     logger.info("JPA calculation time: {:g} seconds".format (jpa_time - read_time))
     logger.info("RR calculation time: {:g} seconds".format (rr_time - jpa_time))
-    logger.info("PMS calculation time: {:g} seconds".format(pms_time - rr_time))
     logger.info("Result writing time: {:g} seconds".format(write_time - rr_time))
     logger.info("Total execution time: {:g} seconds".format(time.time() - start_time))
 

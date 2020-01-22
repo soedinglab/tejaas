@@ -15,7 +15,6 @@ def method_selector(method):
     onlyjpa = False
     jpa = False
     rrg = False
-    pms = False
     if method == 'jpa':
         jpa = True
     elif method == 'rr':
@@ -23,11 +22,7 @@ def method_selector(method):
     elif method == 'jpa-rr':
         jpa = True
         rrg = True
-    elif method == 'rr-sparse':
-        jpa = True
-        rrg = True
-        pms = True
-    if jpa and not rrg and not pms:
+    if jpa and not rrg:
         jpa = False
         onlyjpa = True
-    return jpa, rrg, pms, onlyjpa
+    return jpa, rrg, onlyjpa

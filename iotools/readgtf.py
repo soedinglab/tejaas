@@ -10,7 +10,7 @@ import gzip
 from utils.containers import GeneInfo
 import re
 
-def gencode_v12(filepath, feature = 'gene', trim=False, biotype=['protein_coding', 'lncRNA'], include_chrom = 0, include_chroms=['{:d}'.format(x + 1) for x in range(22)]):
+def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', 'lncRNA'], include_chrom = 0, include_chroms=['{:d}'.format(x + 1) for x in range(22)]):
     annotfile = os.path.realpath(filepath)
     geneinfo = list()
     lncRNA_list = ["macro_lncRNA","non_coding","bidirectional_promoter_lncRNA","3prime_overlapping_ncRNA","sense_overlapping","processed_transcript","sense_intronic","TEC","antisense","lincRNA"]

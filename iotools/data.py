@@ -45,8 +45,6 @@ def optimize_sb2(S, sigmasx, target):
             sb2 -= diff*(sb2)
             S2mod = S2 + (sx2 / sb2)
             Keff = np.sum(S2/S2mod) / N
-        #print("Keff",Keff)
-        #print("SB2=",sb2)
         sbetas.append(sb2)
     te = time.time()
     print('{:s} took: {:.6f} seconds'.format("optimize_sb2", te-ts))
@@ -129,34 +127,6 @@ class Data():
         return gx_knn, gt_knn
 
     @timeit
-    def get_cismasklist_old(self, snpinfo, geneinfo, chrom, window=1e6):
-        chr_genes_ix = np.array([i for i, g in enumerate(geneinfo) if g.chrom == chrom])
-        chr_genes = [geneinfo[ix] for ix in chr_genes_ix]
-        genemasks = list()
-        iprev = 0
-        for snp in snpinfo:
-            pos = snp.bp_pos
-            left = pos - window
-            right = pos + window
-            thismask = list()
-            for i, g in enumerate(chr_genes[iprev:]):
-                gstart = g.start
-                gend = g.end
-                if gstart >= left and gstart < right:
-                    thismask.append(iprev + i)
-                elif gend >= left and gend < right:
-                    thismask.append(iprev + i)
-                if gstart > right:
-                    break
-            if len(thismask) > 0:
-                genemasks.append(chr_genes_ix[np.array(thismask)])
-                iprev = thismask[0]
-            else:
-                genemasks.append(np.array([]))
-        return genemasks
-
-
-    @timeit
     def get_cismasklist(self, snpinfo, geneinfo, chrom, window=1e6):
         chr_genes_ix = [[] for ichrm in range(22)] 
         chr_genes = [[] for ichrm in range(22)]
@@ -198,39 +168,11 @@ class Data():
                 if gstart > right:
                     break
             if len(thismask) > 0:
-                #genemasks.append(chr_genes_ix[np.array(thismask)])
-                #iprev = thismask[0]
                 genemasks.append(np.array(thismask))
                 iprev = new_start_iloc
             else:
                 genemasks.append(np.array([]))
         return genemasks
-
-
-    @timeit
-    def compress_cismasklist_old(self, genemasks):
-        cismasks = list()
-        appendmask = False
-        setprev = False
-        snplist = list()
-        for i, mask in enumerate(genemasks):
-            if not setprev: 
-                prev_mask = mask
-                setprev = True
-            if np.all(np.array_equal(mask, prev_mask)):
-                snplist.append(i)
-            else:
-                appendmask = True
-
-            if i == len(genemasks) - 1: appendmask = True # no more masks to process
-
-            if appendmask:
-                thismask = CisMask(rmv_id = prev_mask, apply2 = snplist)
-                cismasks.append(thismask)
-                snplist = list([i])
-                prev_mask = mask
-                appendmask = False
-        return cismasks
 
 
     @timeit
@@ -260,8 +202,6 @@ class Data():
                     appendmask = False
 
             if endmask:
-                # if not appendmask:
-                #     snplist.append(i)
                 thismask = CisMask(rmv_id = mask, apply2 = snplist)
                 cismasks.append(thismask)
 
@@ -354,7 +294,6 @@ class Data():
             new_snp = snp._replace(maf = maf_actual)
             newsnps.append(new_snp)
             newdosage.append(dosage[i])
-            # newdosage.append(intdosage)
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
@@ -386,10 +325,6 @@ class Data():
             gt_donor_ids = vcf.donor_ids
             snpinfo = vcf.snpinfo
 
-        # snpinfo_filtered, dosage_filtered = self.filter_snps(snpinfo, dosage)
-        # self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
-        # self._snpinfo = snpinfo_filtered
-
         # Gene Expression
         self.logger.debug("Reading expression levels")
         rpkm = ReadRPKM(self.args.gx_file, "gtex", npca = self.args.npca)
@@ -397,28 +332,15 @@ class Data():
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
 
-        # if self.args.selected_donors:
-        #     self.logger.debug("Selecting samples from user supplied list")
-        #     with open(self.args.selected_donors) as instream:
-        #         donors_user_list = [l.strip() for l in instream.readlines()]
-        #     donors_ix   = np.array([expr_donors.index(i.strip()) for i in donors_user_list if i in expr_donors])
-        #     expr_donors = [expr_donors[ix] for ix in donors_ix]
-        #     expression  = rpkm._normalize_expr(expression[:, donors_ix])
-        #     # expression  = rpkm._quant_normalize_expr(expression[:, donors_ix])
-
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
 
         if(self.args.gxtrim):
             ### for Cardiogenics ###
-            gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=True)
+            gene_info = readgtf.gencode(self.args.gtf_file, trim=True)
         else:
             ### for GTEx ###
-            gene_info = readgtf.gencode_v12(self.args.gtf_file, trim=False)
-
-        if self.args.shuffle_special:
-            self.logger.warn("Shuffling genotype randomly before (!) KNN")
-            random.shuffle(gt_donor_ids)
+            gene_info = readgtf.gencode(self.args.gtf_file, trim=False)
 
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
@@ -429,7 +351,6 @@ class Data():
         self._expr = rpkm._normalize_expr(expression[:, exprmask][indices, :])
         self._geneinfo = genes
 
-        # dosage_filtered_selected = dosage_filtered[:, vcfmask]
         dosage_masked = dosage[:, vcfmask]
         snpinfo_filtered, dosage_filtered_selected = self.filter_snps(snpinfo, dosage_masked)
         self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
@@ -445,21 +366,8 @@ class Data():
         #     if g.start > genes[i+1].start and g.chrom == genes[i+1].chrom:
         #         print(g, genes[i+1])
 
-        # if self.args.forcetrans:
-        #     self.logger.debug("Forcing trans detection: removing genes from Chr {:d}".format(self.args.chrom))
-        #     ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom != self.args.chrom])
-        #     self._expr = self._expr[ix2keep, :]
-        #     self._geneinfo = [self._geneinfo[i] for i in ix2keep]
-        # elif self.args.forcecis:
-        #     self.logger.debug("Forcing cis detection: removing genes NOT from Chr {:d}".format(self.args.chrom))
-        #     ix2keep = np.array([i for i, g in enumerate(self._geneinfo) if g.chrom == self.args.chrom])
-        #     self._expr = self._expr[ix2keep, :]
-        #     self._geneinfo = [self._geneinfo[i] for i in ix2keep]
-
         if self.args.cismasking:
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
-            #cis_masks = self.get_cismaskcomp(self._snpinfo, self._geneinfo, self.args.chrom)
-            #snps_masks_lists, compressed_masks = self.compress_cis_masks(cis_masks)
             self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = self.compress_cismasklist(self._cismasklist)
         
@@ -473,10 +381,6 @@ class Data():
         else:
             self._expr = rpkm._normalize_expr(self._expr)
 
-        if self.args.magic_sqrt:
-            self.logger.debug("Applying nonsense corrections factor {:s}".format(str(self._expr.shape)))
-            self._expr = self._expr / np.sqrt(self._expr.shape[1])
-
         if self.args.shuffle:
             usedmask = [gt_donor_ids[i] for i in vcfmask]
             if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
@@ -489,16 +393,6 @@ class Data():
             rand_index = np.array([usedmask.index(x) for x in rand_donor_ids if x in usedmask])
             self._gtnorm = self._gtnorm[:, rand_index]
             self._gtcent = self._gtcent[:, rand_index]
-
-            
-        # # Shuffle genotype?
-        # if self.args.shuffle:
-        #     if self.args.shuffle_file is not None and os.path.isfile(self.args.shuffle_file):
-        #         self.logger.warn("Shuffling genotype using supplied donor IDs")
-        #         gt_donor_ids = [line.strip() for line in open(self.args.shuffle_file)]
-        #     else:
-        #         self.logger.warn("Shuffling genotype randomly")
-        #         random.shuffle(gt_donor_ids)
 
     def simulate(self):
 

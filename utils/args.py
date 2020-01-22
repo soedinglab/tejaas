@@ -57,21 +57,14 @@ class Args():
 
         self.vcf_file    = args.vcf_filename
         self.oxf_file    = args.oxf_filename
-        # self.oxf_columns = args.oxf_columns
-        self.selected_donors = args.selected_donors
         self.isdosage    = args.isdosage
         self.gxtrim      = args.gxtrim
-        self.forcetrans  = args.forcetrans
-        self.forcecis    = args.forcecis
         self.cismasking  = args.cismasking
 
         self.shuffle        = args.shuffle
-        self.shuffle_special= args.shuffle_special
         self.shuffle_file   = args.shuffle_file
         if self.shuffle_file is not None:
             self.shuffle = True
-
-        self.masking(self.forcecis, self.forcetrans, self.cismasking)
 
         if args.chrom is not None:
             self.chrom   = int(args.chrom)
@@ -94,16 +87,14 @@ class Args():
         self.npca      = args.npca
         self.jpacut    = args.jpathres
         self.jpafile   = args.jpa_filename
-        self.ntransmax = args.optim_ntrans
         self.nullmodel = args.nullmodel
         self.window    = args.window
         self.qnullfile = args.qnullfile
         self.knn       = args.knn
-        self.magic_sqrt= args.magic_sqrt
         self.dynamic   = args.dynamic
         self.mml       = args.mml
 
-        self.jpa, self.rr, self.pms, self.onlyjpa = project.method_selector(args.method)
+        self.jpa, self.rr, self.onlyjpa = project.method_selector(args.method)
 
         self.simulate  = args.simulate
         self.simparams = args.simparams
@@ -120,10 +111,6 @@ class Args():
                 self.logger.info('Sigma_beta: {:g}'.format(args.sigmabeta))
             if self.gxsim:
                 self.logger.warn('No gene expression file provided. Simulating gene expression')
-
-    def masking(self, forcecis, forcetrans, cismasking):
-        if sum([forcecis, forcetrans]) > 1:
-            raise argparse.ArgumentTypeError("Mutually exclusive options, choose one of --force-trans or --force-cis")
 
     def parse_args(self):
 
@@ -142,13 +129,6 @@ class Args():
                             dest='oxf_filename',
                             metavar='FILE',
                             help='input Oxford file')
-
-        # parser.add_argument('--oxf-columns',
-        #                     type=int,
-        #                     default=6,
-        #                     dest='oxf_columns',
-        #                     metavar='FILE',
-        #                     help='number of columns before genotype data (rsid, bpos, chr, refAllele, altAllele, maf)')
 
         parser.add_argument('--dosage',
                             dest='isdosage',
@@ -183,32 +163,10 @@ class Args():
                             metavar='FILE',
                             help='Shuffle the genotypes using the supplied donor IDs file')
 
-        parser.add_argument('--selected-donors',
-                            type=str,
-                            dest='selected_donors',
-                            metavar='FILE',
-                            help='List of donors ids to select')
-
-        parser.add_argument('--force-trans',
-                            dest='forcetrans',
-                            action='store_true',
-                            help='Select only trans SNPs-Genes pairs not in the same Chromosome')
-
-        # parser.set_defaults(forcetrans=False)
-
-        parser.add_argument('--force-cis',
-                            dest='forcecis',
-                            action='store_true',
-                            help='Select only cis SNPs-Genes pairs in the same Chromosome')
-
-        # parser.set_defaults(forcecis=False)
-
         parser.add_argument('--cismask',
                             dest='cismasking',
                             action='store_true',
                             help='Generate cismasks for the expression matrix for each SNP')
-
-        # parser.set_defaults(cismasking=False)
 
         parser.add_argument('--chrom',
                             dest='chrom',
@@ -238,7 +196,7 @@ class Args():
                             type=method_strings,
                             dest='method',
                             metavar='STR',
-                            help='which method to run: jpa / rr / optim / jpa-rr / rr-sparse')
+                            help='which method to run: jpa / rr / jpa-rr')
     
         parser.add_argument('--outprefix',
                             type=str,
@@ -306,12 +264,6 @@ class Args():
                             dest='jpa_filename',
                             metavar='FILE',
                             help='name of jpa output file; required for selecting SNPs for optimization of sigmabeta')
-    
-        parser.add_argument('--optim-ntrans',
-                            type=int,
-                            dest='optim_ntrans',
-                            metavar='INT',
-                            help='number of trans-eQTLs assumed by TEJAAS for optimization of sigma_beta')
 
         parser.add_argument('--simulate',
                             dest='simulate',
@@ -345,13 +297,6 @@ class Args():
                             dest = 'knn',
                             help = 'Number of neighbours for KNN (0 means don\'t use KNN)',
                             default = 0)
-
-        parser.add_argument('--magic_sqrt',
-                            action='store_true', 
-                            help='use magic sqrt correction on gene expression (?)',
-                            dest='magic_sqrt')
-
-        parser.set_defaults(magic_sqrt=False)
 
         parser.add_argument('--dynamic',
                             default=None,
