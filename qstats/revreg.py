@@ -167,15 +167,15 @@ class RevReg:
             masked_gx = np.ascontiguousarray(gx[usegenes])
 
             ## Optimize sb2 (if its None, then optimize it)
-            if sb2[0] is None:
+            """ if sb2[0] is None:
                 optimizer = SBoptimizer(gt[mask.apply2], masked_gx, sx2[mask.apply2])
                 optimizer.fit()
                 sb2_opt = np.zeros(gt.shape[0])
                 sb2_opt[mask.apply2] = optimizer.sb2 * 100 # increase 10-fold sigma_beta heuristic
 
                 _p, _q, _mu, _sig, _b = self.basejob(gt, masked_gx, sb2_opt, sx2, maf, np.array(mask.apply2), get_betas)
-            else:
-                _p, _q, _mu, _sig, _b = self.basejob(gt, masked_gx, sb2, sx2, maf, np.array(mask.apply2), get_betas)
+            else: """
+            _p, _q, _mu, _sig, _b = self.basejob(gt, masked_gx, sb2, sx2, maf, np.array(mask.apply2), get_betas)
 
             p = np.append(p, _p)
             q = np.append(q, _q)

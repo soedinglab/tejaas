@@ -138,13 +138,13 @@ if args.rr:
         Keff = np.sum(_S2/_S2mod) / len(_S2)
         if rank == 0:
             logger.debug("Current Keff @ {:f}".format(Keff))
-    elif args.mml is not None:
+    elif args.mml:
         if rank == 0:
-            logger.debut("SIGMA BETA OPTIMIZED BY MML")
-        sigbeta2 = [None for x in gtnorm.shape[0]]
+            logger.debug("SIGMA BETA OPTIMIZED BY MML")
+        sigbeta2 = [None for x in range(gtnorm.shape[0])]
     else:
         if rank == 0:
-            logger.debut("SIGMA BETA FIXED TO {:g}".format(args.sigmabeta))
+            logger.debug("SIGMA BETA FIXED TO {:g}".format(args.sigmabeta))
         sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
 
     if args.nullmodel == 'maf':
