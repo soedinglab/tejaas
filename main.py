@@ -18,6 +18,7 @@ from qstats.revreg import RevReg
 from qstats.jpa_pvals import JPAPVALS
 
 from iotools.data import Data
+#from iotools.data import optimize_sb2
 from iotools.outhandler import Outhandler
 from iotools import readmaf
 from iotools import readqnull
@@ -121,7 +122,19 @@ if args.jpa and args.rr:
     #broadcast this new genotype
 
 if args.rr:
+    #sigbeta2 = None
+    #if rank == 0:
+    #    Yt = expr.T
+    #    U, S, Vt = np.linalg.svd(Yt, full_matrices=False)
+    #    sigmax2 = np.var(gtcent, axis = 1)
+    #    sigbeta2 = optimize_sb2(S, sigmax2, args.sigmabeta)
+    #    S2 = np.square(S)
+    #    S2mod = S2 + sigmax2[0] / sigbeta2[0]
+    #    keff_frac = np.sum(S2 / S2mod) / len(S2)
+    #    logger.debug('Optimized <sigmabeta2> = {:.4f} with Keff / K = {:.2f}'.format(np.mean(np.sqrt(sigbeta2)), keff_frac))
+
     sigbeta2 = np.repeat(args.sigmabeta ** 2, gtnorm.shape[0])
+    #sigbeta2 = comm.bcast(sigbeta2, root = 0)
 
     if args.nullmodel == 'maf':
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)

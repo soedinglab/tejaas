@@ -30,6 +30,27 @@ def timeit(f):
     return wrap
 
 
+def optimize_sb2(S, sigmasx, target):
+    sbetas = list()
+    S2 = np.square(S)
+    S2_lim = np.percentile(S2, 50)
+    for sx2 in sigmasx:
+        sb2 =  sx2 / S2_lim       # start parameter at median
+        S2mod = S2 + (sx2 / sb2)
+        N = len(S2)
+        Keff = np.sum(S2/S2mod) / N
+
+        while np.abs(Keff - target) > 0.01:
+            diff = Keff - target
+            sb2 -= diff*(sb2)
+            S2mod = S2 + (sx2 / sb2)
+            Keff = np.sum(S2/S2mod) / N
+
+        sbetas.append(sb2)
+
+    return np.array(sbetas)
+
+
 class Data():
 
     def __init__(self, args):
