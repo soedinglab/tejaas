@@ -569,6 +569,7 @@ permuted_null ( int N, double* X, double* W, double Q, double* muQ, double* sigQ
 
 	// Due to some numerical error with large sig_b, the variance can be negative, small fix
 	if (sig2 < 0) {
+		printf("Warning: negative sigQ: %f", sig2);
 		sig2 = -sig2;
 	}
 
@@ -687,6 +688,7 @@ getW ( double* U, double* Smod, double* W, int nsample, int nS, int ioff, double
 			W[ i*nS + j ] /= sx2;
 		}
 	}
+
 	return true;
 }		/* -----  end of function getW  ----- */
 

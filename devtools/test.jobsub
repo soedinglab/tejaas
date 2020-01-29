@@ -14,6 +14,6 @@ module load intel/mkl/64/2017/2.174
 module load openmpi/intel/64/1.10.7
 
 #source activate py35
-TEJAAS="${HOME}/tejaas_mkl/bin/tejaas"
+TEJAAS="${HOME}/tejaas/bin/tejaas"
 EXPRFILE="../GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt"
-mpirun -n 8 ${TEJAAS} --gx ${EXPRFILE} --simulate --test --method rr --null perm --simparams 0.1 0.1 1000
+mpirun -n 8 ${TEJAAS} --gx ${EXPRFILE} --simulate --test --method rr --null perm --simparams 0.1 0.9 1000 0 0.001
