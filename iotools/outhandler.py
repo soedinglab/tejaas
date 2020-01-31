@@ -28,18 +28,11 @@ class Outhandler:
             for i, snp in enumerate(self.snpinfo):
                 f.write("{:s} {:s}\n".format(snp.varid, " ".join(["{:g}".format(i) for i in fstats[i,:]])))
 
+
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
         scores = jpa.scores
-        with open(fname, "w") as f:
-            f.write("snpid\tjpascore\n")
-            for i, snp in enumerate(self.snpinfo):
-                f.write("{:s}\t{:g}\n".format(snp.varid, scores[i]))
-
-    def write_jpa_pvals(self, jpa):
-        fname = self.args.outprefix + "_jpa_pvals.txt"
-        scores = jpa.scores
-        pvals = jpa.pcpma
+        pvals = jpa.jpa_pvals
         with open(fname, "w") as f:
             f.write("snpid\tjpascore\tp-value\n")
             for i, snp in enumerate(self.snpinfo):
@@ -63,7 +56,7 @@ class Outhandler:
                 gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
                 outstream.write(gene_names+"\n")
                 np.savetxt(outstream, rr.betas, fmt='%1.4e')
-        select = np.where(rr.pvals < self.args.psnpcut)[0]
+        snp_select = np.where(rr.pvals < self.args.psnpcut)[0]
         fname = self.args.outprefix + "_gene_snp_list" + prefix + ".txt"
         pvals = jpa.pvals
 
@@ -73,26 +66,7 @@ class Outhandler:
 
         with open(fname, "w") as f:
             f.write("geneid\tsnpid\tpval\n")
-            for idx in select:
+            for idx in snp_select:
                 gene_select = np.where(pvals[idx, :] < self.args.pgenecut)[0]
                 for gidx in gene_select:
                     f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, pvals[idx][gidx]) )
-
-    # def write_rr_out(self, jpa, rr):
-    #     fname = self.args.outprefix + "_rr.txt"
-    #     with open(fname, "w") as f:
-    #         f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P'))
-    #         for i, x in enumerate(self.snpinfo):
-    #             f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
-
-    #     select = np.where(rr.pvals < self.args.psnpcut)[0]
-    #     fname = self.args.outprefix + "_gene_snp_list.txt"
-    #     pvals = jpa.pvals
-    #     if self.selected is not None and len(self.selected):
-    #         pvals = jpa.pvals[self.selected]
-    #     with open(fname, "w") as f:
-    #         f.write("geneid\tsnpid\tpval\n")
-    #         for idx in select:
-    #             gene_select = np.where(pvals[idx, :] < self.args.pgenecut)[0]
-    #             for gidx in gene_select:
-    #                 f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, pvals[idx][gidx]) )

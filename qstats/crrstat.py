@@ -68,4 +68,3 @@ def no_null(gt, gx, sb2, sx2):
     maf = np.zeros(gt.shape[0])
     p, R, mu, sigma = crevreg(gt, gx, sb2, 0, maf)
     return p, R, mu, sigma
-

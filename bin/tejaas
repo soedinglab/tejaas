@@ -1,5 +1,3 @@
 #!/bin/bash
-
-BINPATH=`dirname $0`
-python "$BINPATH/../main.py"
-# $HOME/opt/miniconda/3/envs/env3.6/bin/python "$BINPATH/../main.py" $@
+BINPATH=$( dirname $0 )
+python "$BINPATH/../main.py" $@

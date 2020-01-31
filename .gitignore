@@ -1,5 +1,5 @@
 __pycache__
 *.so
-GTEx_wholeBlood_Normalzed_NoPEER_lmcorrected.txt
-devtools/tejaas_test.*
+devtools/*
 *.swp
+test/data/

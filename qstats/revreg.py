@@ -1,75 +1,19 @@
-import os
 import numpy as np
+import os
+import time
+import ctypes
+
 from scipy import special
 from scipy import stats
-import ctypes
-import logging
+from scipy.optimize import minimize
+#from statsmodels.distributions.empirical_distribution import ECDF
+
 from utils import mpihelper
 from qstats import rrstat
 from qstats import crrstat
 from utils.logs import MyLogger
-import time
-# from statsmodels.distributions.empirical_distribution import ECDF
-from scipy.stats import expon
-
-
-from scipy.optimize import minimize
-
-class SBoptimizer:
-
-    def __init__(self, GT, GX, sx2):
-
-        self._GT  = np.ascontiguousarray(GT)
-        self._GX  = np.ascontiguousarray(GX)
-        self._sx2 = np.ascontiguousarray(sx2)
-        self._nsnps = GT.shape[0]
-        self._nsample = GX.shape[1]
-        
-        U, S, VT = np.linalg.svd(GX.T)
-        self._S = S
-        self._U = U
-        self._S2 = np.square(S)
-        self._opt_sb2 = np.zeros(self._nsnps)
-    
-    @property
-    def sb2(self):
-        return self._opt_sb2
-
-    def get_ML(self, _sb2, i):
-        # sb2 = sb * sb
-        sb2 = np.exp(_sb2)
-        S2mod = self._S2 + (self._sx2[i] / sb2)
-        Rscore = np.sum(np.square(np.dot(self._U.T, self._GT[i,:])) * (self._S2 / S2mod)) / self._sx2[i]
-        MLL = -0.5*np.sum(np.log( self._S2 * (sb2 / self._sx2[i]) + 1 )) + 0.5*Rscore
-
-        denom = (self._S2 * sb2 + self._sx2[i])
-        der = 0.5* np.sum( ( self._S2 / denom ) * ( (np.square(np.dot(self._U.T, self._GT[i,:])) / denom ) - 1 ) )
-        return -MLL, sb2*np.array([-der])
-
-    def fit(self):
-        st = time.time()
-        
-        sb_init = np.exp(0.01)
-        for i in range(self._nsnps):
-            res = minimize(   self.get_ML,
-                              sb_init, 
-                              args = i,
-                              method='L-BFGS-B',
-                              jac = True,
-                              #bounds = [[0,1]],
-                              options={'maxiter': 200000,
-                                       'maxfun': 2000000,
-                                       #'ftol': 1e-9,
-                                       #'gtol': 1e-9,
-                                       'disp': False})
-
-            # print(res)
-            self._opt_sb2[i] = np.exp(res.x[0])
-        et = time.time()
-        print("MML sb2 optimization took: ",et-st)
 
 class RevReg:
-
 
     def __init__(self, x, y, sigbeta2, comm, rank, ncore, null = 'perm', maf = None, masks = None):
         self.gt = x
@@ -92,11 +36,8 @@ class RevReg:
         self._mu = None
         self._sigma = None
         self._betas = None
-        self._selected_snps = np.array([])
-        self._selected_genes = None
-        self._null_qscores = None
 
-        if self.null == 'perm' or self.null == "no_null":
+        if self.null == 'perm':
             self.sigx2 = np.var(self.gt, axis = 1)
         elif self.null == 'maf':
             self.sigx2 = np.ones(self.gt.shape[0])
@@ -131,14 +72,6 @@ class RevReg:
     def betas(self):
         return self._betas
 
-    @property
-    def selected_snps(self):
-        return self._selected_snps
-
-    @property
-    def selected_genes(self):
-        return self._selected_genes
-
     def slavejob(self, gt, gx, sb2, sx2, maf, masks, start, end, usemask, get_betas = False):
         if usemask:
             if len(masks) == 0: return [], [], [], [], np.array([])
@@ -165,18 +98,7 @@ class RevReg:
             usegenes = np.ones(gx.shape[0], dtype=bool)
             if mask.rmv_id.shape[0] > 0: usegenes[mask.rmv_id] = False
             masked_gx = np.ascontiguousarray(gx[usegenes])
-
-            ## Optimize sb2 (if its None, then optimize it)
-            """ if sb2[0] is None:
-                optimizer = SBoptimizer(gt[mask.apply2], masked_gx, sx2[mask.apply2])
-                optimizer.fit()
-                sb2_opt = np.zeros(gt.shape[0])
-                sb2_opt[mask.apply2] = optimizer.sb2 * 100 # increase 10-fold sigma_beta heuristic
-
-                _p, _q, _mu, _sig, _b = self.basejob(gt, masked_gx, sb2_opt, sx2, maf, np.array(mask.apply2), get_betas)
-            else: """
             _p, _q, _mu, _sig, _b = self.basejob(gt, masked_gx, sb2, sx2, maf, np.array(mask.apply2), get_betas)
-
             p = np.append(p, _p)
             q = np.append(q, _q)
             mu = np.append(mu, _mu)
@@ -186,6 +108,7 @@ class RevReg:
                 # set beta value for masked genes to zero
                 betas = self.reshape_masked_betas(_b, mask, gx.shape[0])
                 b = np.append(b, betas)
+
         return p, q, mu, sig, b
 
     def basejob(self, gt, gx, sb2, sx2, maf, applyon, get_betas):
@@ -194,8 +117,6 @@ class RevReg:
         slv_sb2 = sb2[applyon]
         slv_sx2 = sx2[applyon]
         b = []
-        if self.null == 'no_null':
-            p, q, mu, sig = crrstat.no_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
         if self.null == 'perm':
             p, q, mu, sig = crrstat.perm_null(slv_gt, slv_gx, slv_sb2, slv_sx2)
         elif self.null == 'maf':
@@ -206,43 +127,6 @@ class RevReg:
         #self.logger.debug("Reporting from node {:d}. Sigma = ".format(self.rank) + np.array2string(sig) + "\n" )
         return p, q, mu, sig, b
 
-    def p_ecdf(self, score, random_scores):
-        ecdf = ECDF(random_scores)
-        res = 1 - ecdf(score)
-        return res
-
-    def p_qnullcdf(self, score, nullscores):
-        ntop = min(100, int(len(nullscores)/10))
-        Q_neg = nullscores[np.argsort(nullscores)[-ntop:]]
-        cumsum = 0
-        for i in range(ntop):
-            cumsum += Q_neg[i] - Q_neg[0]
-        lam = (1/ntop) * cumsum
-        pval = (ntop / len(nullscores)) * np.exp(- (score - Q_neg[0])/lam)
-        return pval
-
-    def p_qscore(self, score, nullscores):
-        if score >= np.sort(nullscores)[-100]:
-            return self.p_qnullcdf(score, nullscores)
-        else:
-            return self.p_ecdf(score, nullscores)
-
-    # def fit_exp(self, nulldistrib):
-    #     halfnull = nulldistrib[nulldistrib >= np.mean(nulldistrib)]
-    #     loc, scale = expon.fit(halfnull)
-    #     lambd = 1 / scale
-    #     return lambd
-
-    # def p_qscore_old(self, score, random_scores, p0 = 0.001):
-    #     n1 = int(p0 * len(random_scores))
-    #     maxscore = random_scores[np.argsort(-random_scores)][n1]
-    #     if score > maxscore:
-    #         lambd = self.fit_exp(random_scores)
-    #         res = np.exp(- lambd * score)
-    #     else:
-    #         ecdf = ECDF(random_scores)
-    #         res = 1.0 - ecdf(score)
-    #     return res
 
     def reshape_masked_betas(self, b, mask, ngenes):
         self.logger.debug("Rank {:d}: reshaping {:d} betas into ({:d},{:d}) with {:d} masked genes out of {:d}".format(self.rank, len(b), len(mask.apply2), (ngenes - len(mask.rmv_id)), len(mask.rmv_id), ngenes)) 
@@ -251,6 +135,7 @@ class RevReg:
         inv_ind = np.delete(np.arange(ngenes), mask.rmv_id)
         paddedBeta[:, inv_ind] = _b
         return paddedBeta.reshape(-1)
+
 
     def mpicompute(self, get_betas = False):
         gmasks = None
@@ -304,8 +189,8 @@ class RevReg:
             betalength = len(betas)
             self.comm.barrier()   # is it necessary?
             received_counts = self.comm.gather(betalength)
-            print("received_counts ", received_counts)
             if self.rank == 0:
+                self.logger.debug("Number of coefficients from each node: {:s}".format(", ".join(['{:d}'.format(x) for x in received_counts])))
                 recvbuf = np.zeros(np.sum(received_counts), dtype=np.float64)
             self.comm.Gatherv(sendbuf=betas, recvbuf=(recvbuf, received_counts), root = 0)
 
@@ -316,7 +201,7 @@ class RevReg:
             self._sigma   = np.concatenate(sigma)
             if get_betas:
                 self._betas   = recvbuf.reshape(self.gt.shape[0], self.gx.shape[0])
-                self.logger.debug("Rank {:d}: Sparse: all nodes computed a total of {:d} pvalues and {:s} betas".format(self.rank, len(self._pvals), str(self._betas.shape)))
+                self.logger.debug("All nodes computed a total of {:d} pvalues and {:s} betas".format(len(self._pvals), str(self._betas.shape)))
         else:
             assert qscores is None
             assert pvals   is None
@@ -336,42 +221,3 @@ class RevReg:
             if get_betas:
                 self._betas = self._betas.reshape(self.gt.shape[0], self.gx.shape[0])
         return
-
-    def prune_masks(self, masks, snpi):
-        selected_masks = [x for x in masks if len(list(set(x.apply2) & set(snpi)))]
-        newmasks = []
-        for m in selected_masks:
-            pruned_apply2 = sorted(list(set(snpi) & set(m.apply2)))
-            newmasks.append(m._replace(apply2=[snpi.index(x) for x in pruned_apply2]))
-        return newmasks
-
-    def select_best_genes(self, betas, n=1000, selected_genes=None):
-        # This function selectes the best n beta values for each snp
-        # it returns a matrix snp x n with the indices of the genes with highest effect size
-        # selected_genes holds the matrix of a previous iteration of selected_best_genes
-        gene_indices = np.array([], dtype=int)
-        for j in range(betas.shape[0]):  # iterate over all snps
-            beta_j        = np.abs(betas[j])
-            bestbetas_ind = sorted(np.argpartition(beta_j, -n)[-n:])
-            if selected_genes is not None:
-                ix = selected_genes[j,:][bestbetas_ind]
-                gene_indices = np.append(gene_indices, ix)
-            else:
-                gene_indices = np.append(gene_indices, bestbetas_ind)
-        gene_indices = gene_indices.reshape(betas.shape[0], n)
-        self.logger.debug("Rank {:d}: Selected best {:d} beta values for the best {:d} SNPs".format(self.rank, gene_indices.shape[1], gene_indices.shape[0]))
-        return gene_indices
-
-    def select_best_SNPs(self, n=1000, pval_thres = 1e-2, use_pvals = True):
-        if use_pvals:
-            bestsnps_ind = np.argwhere(self._pvals < pval_thres).reshape(-1,)
-            # worstsnps_ind = np.argwhere(self._pvals > 0.8).reshape(-1,)[:2] # used to select worst pvals
-            # bestsnps_ind = np.append(bestsnps_ind, worstsnps_ind)
-            self.logger.debug("Selected {:d} pvalues below {:f} threshold".format(len(bestsnps_ind), pval_thres))
-            # self.logger.debug("Selecting best {:d} pvalues out of {:d}".format(n, len(self.pvals)))
-            # bestsnps_ind = np.argpartition(self.pvals, n)[:n]
-        else:
-            self.logger.debug("Selecting best {:d} Qscores out of {:d}".format(n, len(self.qscores)))
-            bestsnps_ind = sorted(np.argpartition(self.qscores, -n)[-n:])
-        return bestsnps_ind
-

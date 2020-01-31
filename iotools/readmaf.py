@@ -1,15 +1,16 @@
 import numpy as np
 import pygtrie
+import os
 from utils.logs import MyLogger
 
 logger = MyLogger(__name__)
 
-def load(snpinfo, nullmodel, maf_file):
+def load(snpinfo, maf_file = None):
 
     maf = [x.maf for x in snpinfo]
 
-    if nullmodel == "maf":
-        logger.debug("Updating MAF from 1000G data")
+    if maf_file is not None and os.path.exists(maf_file):
+        logger.debug("Updating MAF from user provided data. {:s}".format(maf_file))
         nmafx = 0
         nmafu = 0
         nallx = 0
@@ -19,7 +20,6 @@ def load(snpinfo, nullmodel, maf_file):
                 l = line.split()
                 try:
                     t[l[2]] = l[3:]
-                    #t[l[2]] = float(l[5])
                 except:
                     logger.warn("Error reading line {:s}".format(line))
                     pass

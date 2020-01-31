@@ -3,27 +3,39 @@ import numpy as np
 from scipy import special
 from scipy import stats
 import ctypes
+from statsmodels.distributions.empirical_distribution import ECDF
+
 from utils import mpihelper
 from utils.logs import MyLogger
 
 class JPA:
 
-    def __init__(self, x, y, comm, rank, ncore, qcalc, masks):
+    def __init__(self, x, y, comm, rank, ncore, qcalc, masks, get_pvals = False, qnull = None):
         self.gt = x
         self.gx = y
         self._pvals = None
         self._qscores = None
+        self._jpa_pvals = None
         self.rank = rank
         self.comm = comm
         self.ncore = ncore
-        self.qcalc = qcalc
         self.mpi = False
-        self.masks = masks
-        self.usemask = True if masks is not None else False
         if self.ncore > 1:
             self.mpi = True
+
+        self.qcalc = qcalc
+        self.masks = masks
+        self.usemask = True if masks is not None else False
+        self.get_empirical_pvals = False
+        if get_pvals:
+            self.get_empirical_pvals = True
+        self.qnull_file = qnull
         self.logger = MyLogger(__name__)
 
+
+    @property
+    def jpa_pvals(self):
+        return self._jpa_pvals
 
     @property
     def pvals(self):
@@ -33,9 +45,6 @@ class JPA:
     def scores(self):
         return self._qscores
 
-    # @scores.setter
-    # def scores(self, scores):
-    #     self._qscores = scores
 
     def masked_jpascore(self, pvals, mask):
         usedgenes = np.ones_like(pvals, dtype=np.bool)
@@ -43,25 +52,6 @@ class JPA:
         res = self.jpascore(pvals[usedgenes])
         return res
 
-    # def apply_mask(self, cismasks, snpblocks):
-    #     # cismasks:  each list element is a mask for cis genes
-    #     # snpblocks: each list element is a list of snps corresponding to the mask
-    #     newqscores = list()
-    #     ngene = self.gx.shape[0]
-    #     for j, mask in enumerate(cismasks):
-    #         for i in snpblocks[j]:
-    #             pvals = self.pvals[i*ngene:(i+1)*ngene]
-    #             allgenes = np.ones(ngene, dtype=bool)
-    #             if mask.shape[0] != 0: allgenes[mask] = False
-    #             masked_pvals = pvals[allgenes]
-    #             newqscore = self.jpascore(masked_pvals)
-    #             # pvals_crop = np.delete(self.pvals[i,:], mask, axis = 0)
-    #             # if len(mask) > 0:
-    #             #     self._pvals[i,:][np.array(mask)] = 1
-    #             # print("Iterating on SNP {:d} with {:d}/{:d} pvals".format(i, len(pvals_crop), len(self.pvals[i,:])))
-    #             # newqscore = self.jpascore(pvals_crop)
-    #             newqscores.append(newqscore)
-    #     self._qscores = np.array(newqscores)
 
     def jpascore(self, pvals):
         p = np.sort(pvals)
@@ -100,7 +90,51 @@ class JPA:
         return res
 
 
-    def slavejob(self, geno, expr, nmax, offset, masks, jpa = True, usemask = False):
+    def get_qecdf_fit(self, q, ntop):
+        qecdf = ECDF(q)
+        qsort = q[np.argsort(q)]
+        qneg = qsort[-ntop:]
+        qcut = qneg[0]
+        cumsum = 0
+        for qnull in qneg:
+            cumsum += qnull - qcut
+        lam = (1 / ntop) * cumsum
+        prefact = ntop / q.shape[0]
+        return qecdf, qcut, lam, prefact
+
+
+    def p_qscore(self, q, qecdf, qcut, lam, prefact):
+        if q < qcut:
+            res = 1 - qecdf(q)
+        else:
+            res = prefact * np.exp(- (q - qcut) / lam)
+        return res
+
+
+    def get_qnull(self):
+        ''' 
+        This function reads the qnull file, if provided. Otherwise, generates uniform random number.
+        Must be called from master and broadcast to the slaves.
+        '''
+        if self.qnull_file is not None and os.path.isfile(self.qnull_file):
+            #qnull = self.read_qnull(self.qnull_file)
+            qnull = list()
+            with open(self.qnull_file, 'r') as instream:
+                for line in instream:
+                    lsplit = line.strip().split()
+                    q = float(lsplit[0].strip())
+                    qnull.append(q)
+            qnull = np.array(qnull)
+        else:
+            ngene = 10000
+            nsnps = 50000
+            qnull = np.array([self.jpascore(np.random.uniform(0, 1, size = ngene)) for i in range(nsnps)])
+        qmod = qnull[np.isfinite(qnull)]
+        self.logger.debug("Read {:d} null Q-scores".format(qmod.shape[0]))
+        return qmod
+
+
+    def slavejob(self, geno, expr, nmax, offset, masks, qnull, jpa = True, usemask = False, get_empirical_pvals = False):
         self.logger.debug('Rank {:d} calculating SNPs {:d} to {:d}'.format(self.rank, offset+1, nmax + offset))
         nsnps = geno.shape[0]
         ngene = expr.shape[0]
@@ -113,7 +147,13 @@ class JPA:
                 qscores = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(nsnps)])
         else:
             qscores = np.zeros(nsnps)
-        return pvals, qscores
+        if get_empirical_pvals:
+            ntop = min(500, int(qnull.shape[0] / 10))
+            qecdf, qcut, lam, prefact = self.get_qecdf_fit(qnull, ntop)
+            p_jpa = np.array([self.p_qscore(q, qecdf, qcut, lam, prefact) for q in qscores])
+        else:
+            p_jpa = np.array([1 for q in qscores])
+        return pvals, qscores, p_jpa
 
 
     def mpicompute(self):
@@ -124,17 +164,20 @@ class JPA:
             expr = self.gx
             nsnp = [x.shape[0] for x in geno]
             gmasks = mpihelper.split_genemasks(self.masks, nsnp, offset)
+            qnull = self.get_qnull()
         else:
             geno = None
             expr = None
             nsnp = None
             offset = None
             gmasks = None
+            qnull  = None
             slave_geno = None
             slave_expr = None
             slave_nsnp = None
             slave_offs = None
             slave_gmasks = None
+            slave_qnull  = None
         
         slave_geno = self.comm.scatter(geno, root = 0)
         slave_expr = self.comm.bcast(expr, root = 0)
@@ -144,12 +187,14 @@ class JPA:
             slave_gmasks = self.comm.scatter(gmasks, root = 0)
         else:
             slave_gmasks = self.comm.bcast(gmasks, root = 0)
+        slave_qnull = self.comm.bcast(qnull, root = 0)
         self.comm.barrier()
         
         # ==================================
         # Data sent. Do the calculations
         # ==================================
-        pvals, qscores = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs, slave_gmasks, jpa = self.qcalc, usemask = self.usemask)
+        pvals, qscores, p_jpa = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs, slave_gmasks, slave_qnull, 
+                                              jpa = self.qcalc, usemask = self.usemask, get_empirical_pvals = self.get_empirical_pvals)
 
         # ==================================
         # Collect the results
@@ -168,12 +213,16 @@ class JPA:
             self._pvals = recvbuf.reshape(sum(nsnp), ngene)
 
         qscores = self.comm.gather(qscores, root = 0)
+        p_jpa = self.comm.gather(p_jpa, root = 0)
 
         if self.rank == 0:
             self._qscores = np.concatenate(qscores)
+            if self.get_empirical_pvals:
+                self._jpa_pvals = np.concatenate(p_jpa)
         else:
             assert qscores is None
             assert recvbuf is None
+            assert p_jpa is None
 
         return
             
@@ -182,7 +231,11 @@ class JPA:
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, jpa = self.qcalc, usemask = self.usemask)
+            qnull = self.get_qnull()
+            pvals, qscores, p_jpa = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, qnull, 
+                                                  jpa = self.qcalc, usemask = self.usemask, get_empirical_pvals = self.get_empirical_pvals)
             self._pvals = pvals.reshape(self.gt.shape[0], self.gx.shape[0])
             self._qscores = qscores
+            if self.get_empirical_pvals:
+                self._jpa_pvals = p_jpa
         return

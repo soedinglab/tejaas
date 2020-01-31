@@ -19,10 +19,15 @@ def method_selector(method):
         jpa = True
     elif method == 'rr':
         rrg = True
-    elif method == 'jpa-rr':
-        jpa = True
+    ## Legacy flag, remove.
+    if method == 'jpa-rr':
         rrg = True
-    if jpa and not rrg:
-        jpa = False
-        onlyjpa = True
-    return jpa, rrg, onlyjpa
+    return jpa, rrg
+
+
+def is_non_zero_file(fpath):
+    return os.path.isfile(fpath) and os.path.getsize(fpath) > 0
+
+
+def need_new_jpanull_file(method_is_jpa, fpath):
+    return method_is_jpa and fpath is not None and not is_non_zero_file(fpath)

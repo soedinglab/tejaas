@@ -1,7 +1,5 @@
 import os
 import numpy as np
-from scipy import special
-from scipy import stats
 import ctypes
 from utils import mpihelper
 from utils.logs import MyLogger
@@ -49,7 +47,6 @@ class ZSTATS:
         ngene = expr.shape[0]
         zstat = np.zeros(nsnps * ngene)
         success = czstat(x, y, nsnps, ngene, nsample, zstat)
-        #res = 1 - stats.f.cdf(zstat, 1, nsample-2)
         return zstat
 
 

@@ -2,16 +2,16 @@ import numpy as np
 import scipy.stats as ss
 import random
 import os
-from sklearn.decomposition import PCA
+from collections import defaultdict
 
-from iotools import simulate
+from utils import cismasking
+from utils import knn
+
 from iotools import readgtf
 from iotools.readOxford import ReadOxford
 from iotools.readvcf import ReadVCF
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo, CisMask
-import scipy.stats as ss
-from collections import defaultdict
 from utils.logs import MyLogger
 from sklearn.decomposition import PCA
 
@@ -29,48 +29,6 @@ def timeit(f):
         args[0].logger.debug('{:s} took: {:.6f} seconds'.format(f.__name__, te-ts))
         return result
     return wrap
-
-def optimize_sb2(S, sigmasx, target):
-    ts = time.time()
-    sbetas = list()
-    S2 = np.square(S)
-    S2_lim = np.percentile(S2, 50)
-    for sx2 in sigmasx:
-        sb2 =  sx2 / S2_lim       # start parameter at median
-        S2mod = S2 + (sx2 / sb2)
-        N = len(S2)
-        Keff = np.sum(S2/S2mod) / N
-
-        while np.abs(Keff - target) > 0.01:
-            diff = Keff - target
-            sb2 -= diff*(sb2)
-            S2mod = S2 + (sx2 / sb2)
-            Keff = np.sum(S2/S2mod) / N
-        sbetas.append(sb2)
-    te = time.time()
-    print('{:s} took: {:.6f} seconds'.format("optimize_sb2", te-ts))
-    return(np.array(sbetas))
-
-def optimize_sb2(S, sigmasx, target):
-    sbetas = list()
-    S2 = np.square(S)
-    S2_lim = np.percentile(S2, 50)
-    for sx2 in sigmasx:
-        sb2 =  sx2 / S2_lim       # start parameter at median
-        S2mod = S2 + (sx2 / sb2)
-        N = len(S2)
-        Keff = np.sum(S2/S2mod) / N
-
-        while np.abs(Keff - target) > 0.01:
-            diff = Keff - target
-            sb2 -= diff*(sb2)
-            S2mod = S2 + (sx2 / sb2)
-            Keff = np.sum(S2/S2mod) / N
-
-        sbetas.append(sb2)
-
-    return np.array(sbetas)
-
 
 class Data():
 
@@ -113,122 +71,6 @@ class Data():
     def expression(self):
         return self._expr
 
-    def knn_correction(self, expr, dosage, K, f=0.1):
-        # pca = PCA(n_components=int(f * min(expr.shape[0], expr.shape[1]) ))
-        pca = PCA(n_components=min(expr.shape[0], expr.shape[1]) )
-        self.logger.debug("Original dimension: {:d} x {:d}".format(expr.shape[0], expr.shape[1]))
-        pca.fit(expr) # requires N x G
-        expr_pca = pca.transform(expr)
-        self.logger.debug("Reduced dimension: {:d} x {:d}".format(expr_pca.shape[0], expr_pca.shape[1]))
-
-        def gene_distance(a, b):
-            return np.linalg.norm(a - b)
-
-        nsample = expr.shape[0]
-        distance_matrix = np.zeros((nsample, nsample))
-        for i in range(nsample):
-            for j in range(i+1, nsample):
-                dist = gene_distance(expr_pca[i,:], expr_pca[j,:])
-                distance_matrix[i, j] = dist
-                distance_matrix[j, i] = dist
-
-        kneighbor = K
-        gx_knn = np.zeros_like(expr)
-        gt_knn = np.zeros_like(dosage)
-        neighbor_list = list()
-        
-        for i in range(nsample):
-            neighbors = np.argsort(distance_matrix[i, :])[:kneighbor + 1][1:]
-            gx_knn[i, :] = expr[i, :] - np.mean(expr[neighbors, :], axis = 0)
-            # noisy_neighbors = np.random.choice(neighbors, size = int(2 * kneighbor / 3), replace = False)
-            # noisy_neighbors = np.random.choice(neighbors, size = kneighbor, replace = True )
-            noisy_neighbors = neighbors
-            gt_knn[:, i] = dosage[:, i] - np.mean(dosage[:, noisy_neighbors], axis = 1)
-            neighbor_list.append(neighbors)
-
-        return gx_knn, gt_knn
-
-    @timeit
-    def get_cismasklist(self, snpinfo, geneinfo, chrom, window=1e6):
-        chr_genes_ix = [[] for ichrm in range(22)] 
-        chr_genes = [[] for ichrm in range(22)]
-        if chrom is not None:
-            chr_genes_ix[chrom - 1] = np.array([i for i, g in enumerate(geneinfo) if g.chrom == chrom])
-            chr_genes[chrom - 1] = [geneinfo[ix] for ix in chr_genes_ix[chrom - 1]]
-        else:
-            for ichrm in range(22):
-                chr_genes_ix[ichrm] = np.array([i for i, g in enumerate(geneinfo) if g.chrom == ichrm + 1])
-                chr_genes[ichrm] = [geneinfo[ix] for ix in chr_genes_ix[ichrm]]
-        genemasks = list()
-        iprev = 0
-        ichrmprev = 0
-        for snp in snpinfo:
-            pos = snp.bp_pos
-            left = pos - window
-            right = pos + window
-            ichrm = chrom - 1 if chrom is not None else snp.chrom - 1
-            iprev_started = False
-            if ichrm != ichrmprev:
-                iprev = 0
-                ichrmprev = ichrm
-            thismask = list()
-            for i, g in enumerate(chr_genes[ichrm][iprev:]):
-                gstart = g.start
-                gend = g.end
-                if gstart >= left and gstart <= right:
-                    # thismask.append(iprev + i)
-                    thismask.append(chr_genes_ix[ichrm][iprev + i])
-                    if not iprev_started:
-                        new_start_iloc = iprev
-                        iprev_started = True
-                elif gend >= left and gend <= right:
-                    # thismask.append(iprev + i)
-                    thismask.append(chr_genes_ix[ichrm][iprev + i])
-                    if not iprev_started:
-                        new_start_iloc = iprev
-                        iprev_started = True
-                if gstart > right:
-                    break
-            if len(thismask) > 0:
-                genemasks.append(np.array(thismask))
-                iprev = new_start_iloc
-            else:
-                genemasks.append(np.array([]))
-        return genemasks
-
-
-    @timeit
-    def compress_cismasklist(self, genemasks):
-        cismasks = list()
-        appendmask = False
-        endmask = False
-        setprev = False
-        snplist = list()
-        for i, mask in enumerate(genemasks):
-            if not setprev:
-                prev_mask = mask
-                setprev = True
-            if np.all(np.array_equal(mask, prev_mask)):
-                snplist.append(i)
-            else:
-                appendmask = True
-
-            if i == len(genemasks) - 1: endmask = True # no more masks to process
-
-            if appendmask:
-                thismask = CisMask(rmv_id = prev_mask, apply2 = snplist)
-                cismasks.append(thismask)
-                snplist = list([i])
-                prev_mask = mask
-                if not endmask:
-                    appendmask = False
-
-            if endmask:
-                thismask = CisMask(rmv_id = mask, apply2 = snplist)
-                cismasks.append(thismask)
-
-        return cismasks
-
 
     def select_donors(self, vcf_donors, expr_donors):
         ''' Make sure that donors are in the same order for both expression and genotype
@@ -257,14 +99,12 @@ class Data():
         f[1] = gt.count(1)
         f[2] = gt.count(2)
         n = sum(f)
-        #p_A = (2 * f[0] + f[1]) / (2 * n)
-        #p_a = (2 * f[2] + f[1]) / (2 * n)
         X2 = n * ( (4 * f[0] * f[2] - f[1] ** 2) / ((2 * f[0] + f[1]) * (2 * f[2] + f[1])) )**2
         pval = 1 - ss.chi2.cdf(X2, 1)
         return pval
 
 
-    def filter_snps(self, snpinfo, dosage):
+    def filter_snps(self, snpinfo, dosage, maf_limit = 0.01, use_hwe = False):
         # Predixcan style filtering of snps
         newsnps = list()
         newdosage = list()
@@ -274,13 +114,13 @@ class Data():
         nlowf = 0
         nlowf_actual = 0
         nhwep = 0
-        maf_limit = 0.01
         for i, snp in enumerate(snpinfo):
             pos = snp.bp_pos
             refAllele = snp.ref_allele
             effectAllele = snp.alt_allele
             rsid = snp.varid
             maf = round(snp.maf, 3)
+            # Actual MAF is lower / higher than population MAF because some samples have been removed
             maf_actual = sum(dosage[i]) / 2 / len(dosage[i])
             # Skip non-single letter polymorphisms
             if len(refAllele) > 1 or len(effectAllele) > 1:
@@ -298,21 +138,21 @@ class Data():
             if not (maf >= maf_limit and maf <= (1 - maf_limit)):
                 nlowf += 1
                 continue
+            # Skip low actual MAF
             if not (maf_actual >= maf_limit and maf_actual <= (1 - maf_limit)):
                 nlowf_actual += 1
                 continue
-            # if np.all(dosage[i] == dosage[i][0:]):
-            #     nsame += 1
-            #     continue
-            # # Convert to integers 0, 1 or 2
-            # bins = [0.66, 1.33]
-            # intdosage = np.digitize(dosage[i], bins)
-            # # Remove SNPs out of HWE
-            # hwep = self.HWEcheck(intdosage)
-            # if(hwep < 0.000001):
-            #    nhwep += 1
-            #    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
-            #    continue
+            # Check HWE
+            if use_hwe:
+                # Convert to integers 0, 1 or 2
+                bins = [0.66, 1.33]
+                intdosage = np.digitize(dosage[i], bins)
+                # Remove SNPs out of HWE
+                hwep = self.HWEcheck(intdosage)
+                if(hwep < 0.000001):
+                   nhwep += 1
+                   # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
+                   continue
             new_snp = snp._replace(maf = maf_actual)
             newsnps.append(new_snp)
             newdosage.append(dosage[i])
@@ -321,7 +161,7 @@ class Data():
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
         self.logger.debug("Removed {:d} SNPs because of low MAF < {:g}".format(nlowf, maf_limit))
         self.logger.debug("Removed {:d} SNPs because of low MAF (current)".format(nlowf_actual))
-        # self.logger.debug("Removed {:d} SNPs because of deviation from HWE".format(nhwep))
+        if use_hwe: self.logger.debug("Removed {:d} SNPs because of deviation from HWE".format(nhwep))
         return newsnps, np.array(newdosage)
 
 
@@ -333,48 +173,13 @@ class Data():
         return gtnorm, gtcent
 
 
-    def knn_correction(self, expr, dosage):
-        pca = PCA(n_components=min(expr.shape[0], expr.shape[1]))
-        self.logger.debug("Original dimension: {:d} x {:d}".format(expr.shape[0], expr.shape[1]))
-        pca.fit(expr) # requires N x G
-        expr_pca = pca.transform(expr)
-        self.logger.debug("Reduced dimension: {:d} x {:d}".format(expr_pca.shape[0], expr_pca.shape[1]))
-    
-        def gene_distance(a, b):
-            return np.linalg.norm(a - b)
-    
-        nsample = expr.shape[0]
-        distance_matrix = np.zeros((nsample, nsample))
-        for i in range(nsample):
-            for j in range(i+1, nsample):
-                dist = gene_distance(expr_pca[i,:], expr_pca[j,:])
-                distance_matrix[i, j] = dist
-                distance_matrix[j, i] = dist
-    
-        kneighbor = 30
-        gx_knn = np.zeros_like(expr)
-        gt_knn = np.zeros_like(dosage)
-        neighbor_list = list()
-    
-        for i in range(nsample):
-            neighbors = np.argsort(distance_matrix[i, :])[:kneighbor + 1][1:]
-            gx_knn[i, :] = expr[i, :] - np.mean(expr[neighbors, :], axis = 0)
-            #noisy_neighbors = np.random.choice(neighbors, size = int(2 * kneighbor / 3), replace = False)
-            #noisy_neighbors = np.random.choice(neighbors, size = kneighbor, replace = True )
-            noisy_neighbors = neighbors
-            gt_knn[:, i] = dosage[:, i] - np.mean(dosage[:, noisy_neighbors], axis = 1)
-            neighbor_list.append(neighbors)
-    
-        return gx_knn, gt_knn
-
-
     def load(self):
         ## Read Oxford File
-        #if self.args.oxf_file:
-        #    oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage)
-        #    dosage = oxf.dosage
-        #    gt_donor_ids = oxf.samplenames
-        #    snpinfo = oxf.snpinfo
+        if self.args.oxf_file:
+            oxf = ReadOxford(self.args.oxf_file, self.args.fam_file, self.args.startsnp, self.args.endsnp, isdosage=self.args.isdosage)
+            dosage = oxf.dosage
+            gt_donor_ids = oxf.samplenames
+            snpinfo = oxf.snpinfo
 
         # Read VCF file
         if self.args.vcf_file:
@@ -385,7 +190,7 @@ class Data():
 
         # Gene Expression
         self.logger.debug("Reading expression levels")
-        rpkm = ReadRPKM(self.args.gx_file, "gtex", npca = self.args.npca)
+        rpkm = ReadRPKM(self.args.gx_file, self.args.gx_datafmt)
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
@@ -393,20 +198,14 @@ class Data():
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
 
-        if(self.args.gxtrim):
-            ### for Cardiogenics ###
-            gene_info = readgtf.gencode(self.args.gtf_file, trim=True)
-        else:
-            ### for GTEx ###
-            gene_info = readgtf.gencode(self.args.gtf_file, trim=False)
+        gene_info = readgtf.gencode(self.args.gtf_file, trim=self.args.gxtrim, biotype=self.args.biotype)
 
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
         self.logger.debug("Before expression selection: {:d} genes from {:d} samples".format(expression.shape[0], expression.shape[1]))
-
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)       
-        self._expr = rpkm._normalize_expr(expression[:, exprmask][indices, :])
+        expression_selected = rpkm._normalize_expr(expression[:, exprmask][indices, :])
         self._geneinfo = genes
 
         dosage_masked = dosage[:, vcfmask]
@@ -414,30 +213,25 @@ class Data():
         self.logger.debug("{:d} SNPs after filtering".format(len(snpinfo_filtered)))
         self._snpinfo = snpinfo_filtered
 
-        self.logger.debug("After expression selection: {:d} genes from {:d} samples".format(indices.shape[0], exprmask.shape[0]))
+        self.logger.debug("After expression selection: {:d} genes from {:d} samples".format(expression_selected.shape[0], expression_selected.shape[1]))
         self.logger.debug("Retained {:d} samples".format(vcfmask.shape[0]))
 
         ### Until here, all filters have been applied and geneinfo and snpinfo reflect current data ###
-        # This holds!! geneinfo is ordered by chrom and start position
-        # just for testing
-        # for i, g in enumerate(genes):
-        #     if g.start > genes[i+1].start and g.chrom == genes[i+1].chrom:
-        #         print(g, genes[i+1])
 
         if self.args.cismasking:
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
-            self._cismasklist = self.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
-            self._cismaskcomp = self.compress_cismasklist(self._cismasklist)
-            
-        self.normalize_and_center_dosage(dosage_filtered_selected)
+            self._cismasklist = cismasking.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
+            self._cismaskcomp = cismasking.compress_cismasklist(self._cismasklist)
 
-        if self.args.knn > 0:
-            self.logger.debug("Applying kNN correction on gene expression and genotype")
-            gx_corr, gt_corr = self.knn_correction(self._expr.T, dosage_filtered_selected, self.args.knn)
+        if self.args.knncorr:
+            self.logger.debug("Applying KNN correction on gene expression and genotype")
+            gx_corr, gt_corr = knn.knn_correction(expression_selected.T, dosage_filtered_selected, self.args.knn_nbr)
             self._expr = rpkm._normalize_expr(gx_corr.T)
-            self.normalize_and_center_dosage(gt_corr)
+            self._gtnorm, self._gtcent = self.normalize_and_center_dosage(gt_corr)
         else:
-            self._expr = rpkm._normalize_expr(self._expr)
+            self.logger.debug("No KNN correction.")
+            self._expr = expression_selected
+            self._gtnorm, self._gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
 
         if self.args.shuffle:
             usedmask = [gt_donor_ids[i] for i in vcfmask]
@@ -451,42 +245,3 @@ class Data():
             rand_index = np.array([usedmask.index(x) for x in rand_donor_ids if x in usedmask])
             self._gtnorm = self._gtnorm[:, rand_index]
             self._gtcent = self._gtcent[:, rand_index]
-
-    def simulate(self):
-
-        # Gene Expression
-        if not self.args.gxsim:
-            rpkm = ReadRPKM(self.args.gx_file, "gtex")
-            expr = rpkm.expression
-            gene_names = rpkm.gene_names
-            geneinfo = list()
-            for gene in gene_names:
-                this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
-                geneinfo.append(this_gene)
-        else:
-            expr = np.random.normal(0, 1, 2189 * 338).reshape(2189, 338)
-            gene_names = ['ENS{:07d}'.format(i+1) for i in range(2189)]
-            geneinfo = list()
-            for gene in gene_names:
-                this_gene = GeneInfo(name = "x-gene", ensembl_id = gene, chrom = 1, start = 1, end   = 2)
-                geneinfo.append(this_gene)
-
-        # Genotype
-        fmin = float(self.args.simparams[0])
-        fmax = float(self.args.simparams[1])
-        nsnp = int(self.args.simparams[2])
-        ntrans = int(self.args.simparams[3])
-        cfrac = float(self.args.simparams[4])
-        maketest = self.args.maketest
-        snpinfo, gtnorm, gtcent = simulate.permuted_dosage(expr, nsnp = nsnp, fmin = fmin, fmax = fmax, maketest = maketest)
-       
-        # Trans-eQTL
-        if ntrans > 0:
-            newgx, hg2, nc = simulate.expression(gtnorm[-ntrans:, :], expr, cfrac = cfrac)
-            expr = newgx
-        
-        self._gtnorm = gtnorm
-        self._gtcent = gtcent
-        self._snpinfo = snpinfo
-        self._expr = expr
-        self._geneinfo = geneinfo

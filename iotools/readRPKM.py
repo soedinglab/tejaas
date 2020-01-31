@@ -5,7 +5,6 @@
     First 2 columns are FID and IID. 
     Gene expression from 3rd column onwards.
     Tab-separated.
-    ** Tries to find a .geneids file in the same folder to get the gene name
     Reads annotation file for gene information
  
     Usage:
@@ -66,12 +65,9 @@ class ReadRPKM:
             return
         self._read_expression_once = True
         self._read_gene_expression()
-        if self._dataset == "cardiogenics":
-            self._read_gene_names()
-        if self._dataset == "geuvadis":
-            self._read_gene_names()
 
     def _read_cardiogenics(self):
+        gene_list = self._read_gene_names()
         expr_list = list()
         donor_list = list()
         with open(self._rpkmfile) as mfile:
@@ -96,10 +92,10 @@ class ReadRPKM:
                 expr = np.array([float(x) for x in linesplit[1:]])
                 expr_list.append(expr)
         expr_list = np.transpose(np.array(expr_list))
-        self._genenames = gene_list
-        return expr_list, donor_list
+        return gene_list, expr_list, donor_list
 
     def _read_geuvadis(self):
+        gene_list = self._read_gene_names()
         expr_list = list()
         donor_list = list()
         with open(self._rpkmfile) as mfile:
@@ -137,11 +133,11 @@ class ReadRPKM:
         donor_list = list()
         try:
             if self._dataset == "cardiogenics":
-                expr_list, donor_list = self._read_cardiogenics()
+                gene_list, expr_list, donor_list = self._read_cardiogenics()
             if self._dataset == "gtex":
-                expr_list, donor_list = self._read_gtex()
+                gene_list, expr_list, donor_list = self._read_gtex()
             if self._dataset == "geuvadis":
-                expr_list, donor_list = self._read_geuvadis()
+                gene_list, expr_list, donor_list = self._read_geuvadis()
         except IOError as err:
             raise IOError("{:s}: {:s}".format(self._rpkmfile, err.strerror))
         expression = np.array(expr_list).transpose()
@@ -156,6 +152,7 @@ class ReadRPKM:
         #     expr_pcacorr = np.dot(pca.transform(expression.T)[:, nComp:], pca.components_[nComp:,:]).T
         #     expression = expr_pcacorr
             
+        self._genenames = gene_list
         self._gene_expression = normexpr
         self._donor_ids = donor_list
 
@@ -170,4 +167,4 @@ class ReadRPKM:
                     genenames.append(gene)
         except IOError as err:
             raise IOError("{:s}: {:s}".format(genefile, err.strerror))
-        self._genenames = genenames
+        return genenames

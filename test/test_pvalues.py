@@ -21,7 +21,7 @@ class OutputTest(unittest.TestCase):
     #         self.fail("Multi-line strings are unequal:\n" + message)
 
     def test_output(self):
-        first = open("data/GOLD_result_rr.txt")
+        first = open("gold/GOLD_result_rr.txt")
         second = open("data/result_rr.txt")
         self.assertMultiLineEqual(first.read(), second.read())
         first.close()

@@ -1,18 +1,30 @@
 #!/usr/bin/env python
+'''
+Collect and streamline all arguments and format them.
+Sanity check on input values.
+'''
 
 import argparse
-import logging
+import os
 from utils.logs import MyLogger
 from utils import project
 
 
-class Error(Exception):
+class InputError(Exception):
+    ''' Raise when incorrect options are used in the argument '''
     pass
 
-class LargerEndSnpError(Error):
+
+class LargerEndSnpError(InputError):
+    ''' Raise when end SNP index is larger than start SNP index '''
     pass
+
 
 def snprange(mstring):
+    ''' 
+    snprange: a colon-separated user input style for specifying start:end of SNPs to read from VCF file.
+    This function is a parser for the colon-separated string.
+    '''
     try:
         incsnps = mstring.split(":")
         startsnp  = int(incsnps[0].strip())
@@ -27,20 +39,36 @@ def snprange(mstring):
     return mlist
 
 
-def method_strings(mstring):
+def biotype_fmt(stringlist):
+    allowed_types = ['protein_coding', 'lncRNA']
     try:
-        assert (mstring == 'jpa' or mstring == 'jpa-rr' or mstring == 'rr' or mstring == 'rr-sparse')
+        assert (all([x in allowed_types for x in stringlist]))
+    except AssertionError:
+        raise argparse.ArgumentTypeError('Please specify a correct biotype')
+    return stringlist
+
+
+def method_strings(mstring):
+    '''
+    Check if the specified method name is valid.
+    '''
+    try:
+        assert (mstring == 'jpa' or mstring == 'rr')
     except AssertionError:
         raise argparse.ArgumentTypeError('Please specify a correct method')
     return mstring
 
 
 def null_strings(mstring):
+    '''
+    Check if the specified null model is valid.
+    '''
     try:
         assert (mstring == 'perm' or mstring == 'maf')
     except AssertionError:
         raise argparse.ArgumentTypeError('Please specify a correct null model')
     return mstring
+
 
 class Args():
 
@@ -58,21 +86,16 @@ class Args():
         self.vcf_file    = args.vcf_filename
         self.oxf_file    = args.oxf_filename
         self.isdosage    = args.isdosage
-        self.gxtrim      = args.gxtrim
-        self.cismasking  = args.cismasking
-
-        self.shuffle        = args.shuffle
-        self.shuffle_file   = args.shuffle_file
-        if self.shuffle_file is not None:
-            self.shuffle = True
-
+        self.fam_file    = args.fam_filename
         if args.chrom is not None:
             self.chrom   = int(args.chrom)
         else:
             self.chrom   = None
-        self.fam_file    = args.fam_filename
         self.gx_file     = args.gx_filename
+        self.gx_datafmt  = args.gx_datafmt
         self.gtf_file    = args.gtf_filename
+        self.gxtrim      = args.gxtrim
+        self.biotype     = args.biotype
         self.outprefix   = args.outprefix
         if args.incsnps is not None:
             self.startsnp = args.incsnps[0] - 1
@@ -80,105 +103,78 @@ class Args():
         else:
             self.startsnp  = 0
             self.endsnp    = 1e15 # an unusually high number to ensure all SNPs are read.
+
+        self.jpa, self.rr = project.method_selector(args.method)
+        self.nullmodel   = args.nullmodel
+        self.cismasking  = args.cismasking
+        self.window      = args.window
+        self.sigmabeta   = args.sigmabeta
+        self.knn_nbr     = args.knn
+        self.knncorr     = True
+        if args.knn == 0:
+            self.knncorr = False
+
+        self.shuffle        = args.shuffle
+        self.shuffle_file   = args.shuffle_file
+        if self.shuffle_file is not None:
+            self.shuffle = True
+
         self.psnpcut   = args.psnpthres
         self.pgenecut  = args.pgenethres
         self.maf_file  = args.maf_filename
-        self.sigmabeta = args.sigmabeta
-        self.npca      = args.npca
-        self.knncorr   = args.knncorr
-        self.jpacut    = args.jpathres
-        self.jpafile   = args.jpa_filename
-        self.nullmodel = args.nullmodel
-        self.window    = args.window
-        self.qnullfile = args.qnullfile
-        self.knn       = args.knn
-        self.dynamic   = args.dynamic
-        self.mml       = args.mml
+        self.jpanull_file = args.qnullfile
+        self.jpa_calc_null = project.need_new_jpanull_file(self.jpa, self.jpanull_file)
 
-        self.jpa, self.rr, self.onlyjpa = project.method_selector(args.method)
-
-        self.simulate  = args.simulate
-        self.simparams = args.simparams
         self.maketest  = args.maketest
 
-        self.gxsim = False
-        if self.gx_file is None:
-            self.gxsim = True
+        self.check_inputs()
 
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
             if self.rr:
                 self.logger.info('Null Model: {:s}'.format(args.nullmodel))
                 self.logger.info('Sigma_beta: {:g}'.format(args.sigmabeta))
-            if self.gxsim:
-                self.logger.warn('No gene expression file provided. Simulating gene expression')
+
 
     def parse_args(self):
 
         self.logger.info('Running TEJAAS v{:s}'.format(project.version()))
 
-        parser = argparse.ArgumentParser(description='Trans-Eqtls from Joint Association AnalysiS (TEJAAS)')
+        parser = argparse.ArgumentParser(description='Tejaas: Discover trans-eQTLs!')
     
         parser.add_argument('--vcf',
                             type=str,
                             dest='vcf_filename',
                             metavar='FILE',
-                            help='input VCF file')
+                            help='Input VCF file in vcf.gz format')
 
         parser.add_argument('--oxf',
                             type=str,
                             dest='oxf_filename',
                             metavar='FILE',
-                            help='input Oxford file')
+                            help='Input Oxford file')
 
         parser.add_argument('--dosage',
                             dest='isdosage',
                             action='store_true',
                             help='Read dosages')
 
-        parser.add_argument('--no-dosage',
-                            dest='isdosage',
-                            action='store_false',
-                            help='Do not read dosages')
-
-        parser.set_defaults(isdosage=False)
-
-        parser.add_argument('--trim',
-                            dest='gxtrim',
-                            action='store_true',
-                            help='Whether to trim version number from gene Ensembl IDs')
-
-        parser.add_argument('--shuffle',
-                            dest='shuffle',
-                            action='store_true',
-                            help='Shuffle the genotypes randomly')
-
-        parser.add_argument('--shuffle-special',
-                            dest='shuffle_special',
-                            action='store_true',
-                            help='Shuffle the genotypes randomly before (!) KNN')
-
-        parser.add_argument('--shuffle-with',
-                            type=str,
-                            dest='shuffle_file',
-                            metavar='FILE',
-                            help='Shuffle the genotypes using the supplied donor IDs file')
-
-        parser.add_argument('--cismask',
-                            dest='cismasking',
-                            action='store_true',
-                            help='Generate cismasks for the expression matrix for each SNP')
-
-        parser.add_argument('--chrom',
-                            dest='chrom',
-                            metavar='NUMBER',
-                            help="Chromosome number being processed")
-
         parser.add_argument('--fam',
                             type=str,
                             dest='fam_filename',
                             metavar='FILE',
-                            help='input fam file')
+                            help='Input fam file')
+    
+        parser.add_argument('--chrom',
+                            dest='chrom',
+                            metavar='NUMBER',
+                            help="Chromosome number of the genotype file")
+
+        parser.add_argument('--include-SNPs',
+                            type=snprange,
+                            dest='incsnps',
+                            metavar='START:END',
+                            help='Colon-separated index of SNPs to be included')
     
         parser.add_argument('--gx',
                             type=str,
@@ -186,106 +182,57 @@ class Args():
                             metavar='FILE',
                             help='input expression file')
 
+        parser.add_argument('--gxfmt',
+                            type=str,
+                            dest='gx_datafmt',
+                            metavar='GX_FORMAT',
+                            default='gtex',
+                            help='Format of input gene expression file. Supported: gtex, cardiogencis and geuvadis')
+
+        parser.add_argument('--biotype',
+                            nargs='*',
+                            type=biotype_fmt,
+                            dest='biotype',
+                            metavar='BIOTYPE_OPTIONS',
+                            default=['protein_coding', 'lncRNA'],
+                            help='List of biotypes to be selected from the GENCODE annotation file. Supported options: protein_coding, lncRNA')
+
         parser.add_argument('--gtf',
                             type=str,
                             dest='gtf_filename',
                             metavar='FILE',
                             help='input gtf file')
     
-        parser.add_argument('--method',
-                            default='jpa-rr',
-                            type=method_strings,
-                            dest='method',
-                            metavar='STR',
-                            help='which method to run: jpa / rr / jpa-rr')
-    
+        parser.add_argument('--trim',
+                            dest='gxtrim',
+                            action='store_true',
+                            help='Trim version number from GENCODE Ensembl IDs')
+
         parser.add_argument('--outprefix',
                             type=str,
                             dest='outprefix',
                             default='out',
                             metavar='STR',
                             help='prefix for all output files')
-    
-        parser.add_argument('--include-SNPs',
-                            type=snprange,
-                            dest='incsnps',
-                            metavar='START:END',
-                            help='colon-separated index of SNPs to be included')
-    
-        parser.add_argument('--psnpthres',
-                            default=0.05,
-                            type=float,
-                            dest='psnpthres',
-                            metavar='PVAL',
-                            help='target genes will be reported for trans-eQTLs, which are below this threshold p-value for RR/JPA statistics')
-    
-        parser.add_argument('--pgenethres',
-                            default=0.05,
-                            type=float,
-                            dest='pgenethres',
-                            metavar='PVAL',
-                            help='target genes whose linear regression association with trans-eQTLs are below this threshold p-value will be reported')
+
+        parser.add_argument('--method',
+                            default='rr',
+                            type=method_strings,
+                            dest='method',
+                            metavar='STR',
+                            help='which method to run: jpa / rr')
     
         parser.add_argument('--null',
                             default='perm',
                             type=null_strings,
                             dest='nullmodel',
                             metavar='STR',
-                            help='which null model to use: perm / maf. The later requires separate maf file')
+                            help='which null model to use: perm / maf')
     
-        parser.add_argument('--maf-file',
-                            type=str,
-                            dest='maf_filename',
-                            metavar='FILE',
-                            help='file name of the MAF, see Documentation for filetype')
-    
-        parser.add_argument('--prior-sigma',
-                            default=0.005,
-                            type=float,
-                            dest='sigmabeta',
-                            metavar='FLOAT',
-                            help='standard deviation of the normal prior for reverse multiple linear regression')
-
-        parser.add_argument('--npca',
-                            default=0,
-                            type=int,
-                            dest='npca',
-                            metavar='INT',
-                            help='Number of principal components to use for correcting the gene expression')
-
-        parser.add_argument('--knn',
-                            dest='knncorr',
+        parser.add_argument('--cismask',
+                            dest='cismasking',
                             action='store_true',
-                            help='whether to apply KNN correction on the data')
-        
-        parser.add_argument('--jpathres',
-                            default=20,
-                            type=float,
-                            dest='jpathres',
-                            metavar='FLOAT',
-                            help='RR statistics are calculated for SNPs above this threshold of JPA statistics')
-    
-        parser.add_argument('--jpafile',
-                            type=str,
-                            dest='jpa_filename',
-                            metavar='FILE',
-                            help='name of jpa output file; required for selecting SNPs for optimization of sigmabeta')
-
-        parser.add_argument('--simulate',
-                            dest='simulate',
-                            action='store_true',
-                            help='perform simulation, modify simparams to change default values')
-
-        parser.add_argument('--simparams',
-                            nargs='*',
-                            default=['0.1', '0.9', '1000', '0', '0.005'],
-                            dest='simparams',
-                            help='fmin, fmax, nsnp')
-
-        parser.add_argument('--test',
-                            dest='maketest',
-                            action='store_true',
-                            help='whether to do test run')
+                            help='Generate cismasks for the expression matrix for each SNP')
 
         parser.add_argument('--window',
                             type = int,
@@ -293,32 +240,126 @@ class Args():
                             dest = 'window',
                             help = 'Window (number of base pairs) used for masking cis genes')
 
-        parser.add_argument('--nullfile',
-                            type = str,
-                            dest = 'qnullfile',
-                            help = 'Filename for storing / reading null JPA scores')
+        parser.add_argument('--prior-sigma',
+                            default=0.1,
+                            type=float,
+                            dest='sigmabeta',
+                            metavar='FLOAT',
+                            help='standard deviation of the normal prior for reverse multiple linear regression')
 
         parser.add_argument('--knn',
                             type = int,
                             dest = 'knn',
-                            help = 'Number of neighbours for KNN (0 means don\'t use KNN)',
-                            default = 0)
+                            help = 'Number of neighbours for KNN (use 0 if you do not want KNN correction)',
+                            default = 30)
 
-        parser.add_argument('--dynamic',
-                            default=None,
+        parser.add_argument('--psnpthres',
+                            default=0.0001,
                             type=float,
-                            help='Dynamically adjust sigma_beta for each SNP',
-                            dest='dynamic')
+                            dest='psnpthres',
+                            metavar='PVAL',
+                            help='target genes will be reported for trans-eQTLs, which are below this threshold p-value for RR/JPA statistics')
+    
+        parser.add_argument('--pgenethres',
+                            default=0.001,
+                            type=float,
+                            dest='pgenethres',
+                            metavar='PVAL',
+                            help='target genes whose linear regression association with trans-eQTLs are below this threshold p-value will be reported')
+    
+        parser.add_argument('--jpanull',
+                            type = str,
+                            dest = 'qnullfile',
+                            help = 'Filename for storing / reading null JPA scores')
 
-        parser.set_defaults(dynamic=False)
+        parser.add_argument('--maf-file',
+                            type=str,
+                            dest='maf_filename',
+                            metavar='FILE',
+                            help='file name of the MAF, see Documentation for filetype')
+    
+        parser.add_argument('--shuffle',
+                            dest='shuffle',
+                            action='store_true',
+                            help='Shuffle the genotypes randomly')
 
-        parser.add_argument('--mml',
-                            action='store_true', 
-                            default=None,
-                            help='Optimize sigmabeta2 parameter by MML',
-                            dest='mml')
+        parser.add_argument('--shuffle-with',
+                            type=str,
+                            dest='shuffle_file',
+                            metavar='FILE',
+                            help='Shuffle the genotypes using the supplied donor IDs file')
 
-        parser.set_defaults(mml=False)
+        parser.add_argument('--test',
+                            dest='maketest',
+                            action='store_true',
+                            help='whether to do test run')
 
         res = parser.parse_args()
         return res
+
+
+    def check_inputs(self):
+        '''
+        Perform sanity checks on the input options.
+        '''
+        if self.rank == 0:
+            '''
+            Check if any genotype file is specified.
+            '''
+            try:
+                assert (self.vcf_file is not None) or (self.oxf_file is not None)
+            except AssertionError:
+                print ('Input error: Specify either --vcf or --oxf. See --help for details.')
+                raise
+
+            if (self.oxf_file is not None):
+                try:
+                    assert (self.fam_file is not None)
+                except AssertionError:
+                    print ('Input error: Specify the sample file with --fam. See --help for details.')
+                    raise
+
+            '''
+            Check if gene expression and GTF files are specified
+            '''
+            try:
+                assert (self.gx_file is not None)
+            except AssertionError:
+                print ('Input error: Specify gene expression file. See --help for details')
+                raise
+            try:
+                assert (self.gtf_file is not None)
+            except AssertionError:
+                print ('Input error: Specify GENCODE file. See --help for details')
+                raise
+
+            '''
+            Check if files exist.
+            '''
+            for filepath in [self.vcf_file, self.oxf_file, self.fam_file, self.gx_file, self.gtf_file]:
+                if (filepath is not None):
+                    try:
+                        assert os.path.isfile(filepath)
+                    except AssertionError:
+                        print ('File {:s} does not exist.'.format(filepath))
+                        raise
+
+            '''
+            Check if output directory is writable / can be created
+            '''
+            outdir = os.path.dirname(os.path.realpath(self.outprefix))
+            try:
+                if not os.path.exists(outdir): os.makedirs(outdir)
+            except IOError:
+                print ('Unable to create output directory: {:s}'.format(outdir))
+                raise
+
+            try:
+                assert os.path.isdir(outdir) and os.access(outdir, os.W_OK | os.X_OK)
+                #filepath = "{:s}.write_tester".format(self.outprefix)
+                #filehandle = open( filepath, 'w' )
+                #filehandle.close()
+                #os.remove(filepath)
+            except AssertionError:
+                print('Unable to create files in {:s}'.format(outdir))
+                raise

@@ -1,20 +1,20 @@
-import os
 import numpy as np
+from scipy.linalg import eigh
 from scipy import special
 from scipy import stats
-import ctypes
-from utils import mpihelper
+
+from qstats.zstats import ZSTATS
 from utils.logs import MyLogger
+from utils import mpihelper
 
 class JPANULL:
 
-    def __init__(self, W, Q, Zmean, N, comm, rank, ncore):
-        self._pvals = None
-        self._qscores = None
-        self._W = W
-        self._Q = Q
-        self._Zmean = Zmean
-        self._N = N
+
+    def __init__(self, x, y, comm, rank, ncore, outfile, niter=100000):
+        self.gt = x
+        self.gx = y
+        self._niter = niter
+        self.outfile = outfile
         self.rank = rank
         self.comm = comm
         self.ncore = ncore
@@ -22,16 +22,12 @@ class JPANULL:
         if self.ncore > 1:
             self.mpi = True
         self.logger = MyLogger(__name__)
-        
-
-    @property
-    def pvals(self):
-        return self._pvals
 
 
-    @property
-    def scores(self):
-        return self._qscores
+    def write_qscores(self):
+        with open(self.outfile, 'w') as fout:
+            for qnull in self._qscores:
+                fout.write(f"{qnull}\n")
 
 
     def jpascore(self, pvals):
@@ -68,7 +64,7 @@ class JPANULL:
             thisW = self._W
             thisQ = self._Q
             thisZmean = self._Zmean
-            start, end = mpihelper.split_n(self._N, self.ncore)
+            start, end = mpihelper.split_n(self._niter, self.ncore)
             nlist = [x - y for x, y in zip(end, start)]
         else:
             thisW = None
@@ -79,13 +75,13 @@ class JPANULL:
             slave_Q = None
             slave_Zmean = None
             slave_n = None
-        
+
         slave_W = self.comm.bcast(thisW, root = 0)
         slave_Q = self.comm.bcast(thisQ, root = 0)
         slave_Zmean = self.comm.bcast(thisZmean, root = 0)
         slave_n = self.comm.scatter(nlist, root = 0)
         self.comm.barrier()
-        
+
         # ==================================
         # Data sent. Do the calculations
         # ==================================
@@ -115,13 +111,59 @@ class JPANULL:
             assert qscores is None
             assert recvbuf is None
         return
-            
+
+
+    def WQ_mpiwrap(self):
+        '''
+        Populates self._W, self._Q and self._Zmean
+        Learns the null Zstats from the ZSTATS class
+        and performs eigendecomposition in the master node.
+        '''
+
+        self._W = None
+        self._Q = None
+        self._Zmean = None
+
+        if self.rank == 0: self.logger.debug("Computing Z-stats")
+        zstats = ZSTATS(self.gt, self.gx, self.comm, self.rank, self.ncore)
+        zstats.compute()
+        
+        if self.rank == 0:
+            self.logger.debug("Computing W and Q")
+            zscores = zstats.scores
+            C = np.cov(zscores.T)
+            # Numpy gives imaginary eigenvalues, use eigh from scipy
+            # for decomposition of real symmetric matrix
+            W, Q = eigh(C)
+            self.logger.debug("Eigendecomposition done")
+            # still some eigenvalues are negative. force them to zero if they are negligible. (!!!!!!!!!!!)
+            # check if everything is ok
+            Wsparse = W.copy()
+            Wsparse[np.where(W < 0)] = 0
+            W = Wsparse
+            #if not np.allclose(C, Q @ np.diag(W) @ Q.T):
+            #    self.logger.error("Eigen vectors could not be forced to positive")
+            #    exit
+            #else:
+            #    W = Wsparse
+            #    self.logger.debug("Eigen vectors are forced to positive")
+            Zmean = np.mean(zscores, axis = 0)
+        
+        self._W = self.comm.bcast(W, root = 0)
+        self._Q = self.comm.bcast(Q, root = 0)
+        self._Zmean = self.comm.bcast(Zmean, root = 0)
+        self.comm.barrier()
+
 
     def compute(self):
+        self.WQ_mpiwrap()
         if self.mpi:
             self.mpicompute()
         else:
-            pvals, qscores = self.slavejob(self._W, self._Q, self._Zmean, self._N)
-            self._pvals = pvals.reshape(self._N, self._W.shape[0])
+            pvals, qscores = self.slavejob(self._W, self._Q, self._Zmean, self._niter)
+            self._pvals = pvals.reshape(self._niter, self._W.shape[0])
             self._qscores = qscores
+        if self.rank == 0:
+            self.logger.debug("Null JPA-scores calculated. Writing to file.")
+            self.write_qscores()
         return
