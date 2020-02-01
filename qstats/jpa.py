@@ -65,7 +65,7 @@ class JPA:
         return res
 
 
-    def clinreg(self, geno, expr, nrow):
+    def clinreg_old(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
         clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
         cfstat = clib.fit
@@ -88,6 +88,31 @@ class JPA:
         success = cfstat(x, y, nsnps, ngene, nsample, fstat)
         res = 1 - stats.f.cdf(fstat, 1, nsample-2)
         return res
+
+
+    def clinreg(self, geno, expr, nrow):
+        _path = os.path.dirname(__file__)
+        clib = np.ctypeslib.load_library('../lib/linear_regression_zstat.so', _path)
+        czstat = clib.fit
+        czstat.restype = ctypes.c_int
+        czstat.argtypes = [np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
+                           np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED'),
+                           ctypes.c_int,
+                           ctypes.c_int,
+                           ctypes.c_int,
+                           np.ctypeslib.ndpointer(ctypes.c_double, ndim=1, flags='C_CONTIGUOUS, ALIGNED')
+                          ]
+    
+        x = geno.reshape(-1,)
+        y = expr.reshape(-1,)
+        xsize = x.shape[0]
+        nsnps = geno.shape[0]
+        nsample = geno.shape[1]
+        ngene = expr.shape[0]
+        zstat = np.zeros(nsnps * ngene)
+        success = czstat(x, y, nsnps, ngene, nsample, zstat)
+        res = 2.0 * (1 - stats.norm.cdf(np.abs(zstat)))
+        return res 
 
 
     def get_qecdf_fit(self, q, ntop):

@@ -53,7 +53,7 @@ def method_strings(mstring):
     Check if the specified method name is valid.
     '''
     try:
-        assert (mstring == 'jpa' or mstring == 'rr')
+        assert (mstring == 'jpa' or mstring == 'rr' or mstring == 'jpa-rr')
     except AssertionError:
         raise argparse.ArgumentTypeError('Please specify a correct method')
     return mstring
