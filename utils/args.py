@@ -6,6 +6,7 @@ Sanity check on input values.
 
 import argparse
 import os
+import errno
 from utils.logs import MyLogger
 from utils import project
 
@@ -350,9 +351,10 @@ class Args():
             outdir = os.path.dirname(os.path.realpath(self.outprefix))
             try:
                 if not os.path.exists(outdir): os.makedirs(outdir)
-            except IOError:
-                print ('Unable to create output directory: {:s}'.format(outdir))
-                raise
+            except OSError as e:
+                if e.errno != errno.EEXIST:
+                    print ('Unable to create output directory: {:s}'.format(outdir))
+                    raise
 
             try:
                 assert os.path.isdir(outdir) and os.access(outdir, os.W_OK | os.X_OK)
