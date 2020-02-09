@@ -80,7 +80,8 @@ Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n
 `--fam`       | `FILEPATH` | Input fam file for samples names of Oxford genotype | Optional | -- 
 `--chrom`     | `INT`      | Chromosome number of the genotype file | Required | -- 
 `--include-SNPs` | `START:END` | Colon-separated index of SNPs to be included | Optional | -- 
-`--gx`        | `FILEPATH` | Input gene expression file | Required | --
+`--gx`        | `FILEPATH` | Input gene expression file for trans-eQTL discovery | Required | --
+`--gxcorr`    | `FILEPATH` | Input gene expression file for target gene discovery | Optional | `--gx` file
 `--gxfmt`     | `OPTION`   | Input gene expression file format (see format details below). Supported options: `gtex`, `cardiogenics`, `geuvadis` | Optional | `gtex`
 `--gtf`       | `FILEPATH` | Input GTF file from GENCODE to read gene Ensembl IDs. Used for selecting biotypes and getting genomic locations. | Required | --
 `--trim`      |            | Flag to trim version number from GENCODE Ensembl IDs | Optional | `False`
@@ -108,16 +109,20 @@ bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --gx ${GXFILE} --gtf ${GTFFILE} --ci
 ```
 This will create RR-scores at &gamma;=0.1 and masking all genes within 1Mb of each SNP. The p-values will be computed from the permuted null model.
 Default format for the gene expression is the same as the GTEx format, and default gtf file is the [GENCODE v26](https://www.gencodegenes.org/human/release_26.html) release.
+For target gene discovery, it will use the same file as used for trans-eQTL discovery.
 
 2. Example of running Tejaas RR-score.
-We recommend using the `perm` null model for calcuting p-values from the RR-score.
+We recommend using the `perm` null model for calcuting p-values from the RR-score
+and a separate confounder-corrected gene expression file for target gene discovery.
 In this example, RR-score is calculated for first 1000 SNPs excluding the first 20 `--include-SNPs 21:1000`.
 KNN correction is performed with 20 nearest neighbors `--knn 20`.
 All cis-genes within +2MB and -2Mb are masked during analysis `--cismask --window 2e6`.
 RR-score calculation uses a prior normal distribution with standard deviation of 0.05 `--prior-sigma 0.05`.
 The output reports target genes only for SNPs with p-value < 1e-6 `--psnpthres 0.000001`.
+Here, `GXFILE` is the raw gene expression file, `GXCORRFILE` is the confounder-corrected gene expression file,
+`VCFFILE` is the genotype file in `.vcf.gz` format and `GTFFILE` is the GENCODE annotation file.
 ```
-mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 21:1000 --gx ${GXFILE} \
+mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 21:1000 --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
                        --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
                        --cismask --window 2e6 --psnpthres 0.000001 \
                        --knn 20 --method rr --null perm --prior-sigma 0.05

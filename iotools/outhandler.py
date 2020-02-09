@@ -19,15 +19,6 @@ class Outhandler:
         logger.debug('Writing result in: {:s}'.format(dirname))
         if not os.path.exists(dirname): os.makedirs(dirname)
 
-    def write_fstat_out(self, cpma):
-        fname = self.args.outprefix + "_cpma_fstat.txt"
-        fstats = cpma.fstats
-        gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
-        with open(fname, "w") as f:
-            f.write("snpid "+gene_names+"\n")
-            for i, snp in enumerate(self.snpinfo):
-                f.write("{:s} {:s}\n".format(snp.varid, " ".join(["{:g}".format(i) for i in fstats[i,:]])))
-
 
     def write_jpa_out(self, jpa):
         fname = self.args.outprefix + "_jpa.txt"
@@ -39,34 +30,33 @@ class Outhandler:
                 f.write("{:s}\t{:g}\t{:g}\n".format(snp.varid, scores[i], pvals[i]))
 
 
-    def write_rr_out(self, jpa, rr, prefix = "", selected_snps = [], selected_genes = [], write_betas = False):
+    def write_rr_out(self, rr, jpa, snp_select_idx, suffix = "", selected_snps = [], selected_genes = [], write_betas = False):
         mysnpinfo = self.snpinfo
         if len(selected_snps):
             mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
-        fname = self.args.outprefix + "_rr" + prefix + ".txt"
+        fname = self.args.outprefix + "_rr" + suffix + ".txt"
         with open(fname, "w") as f:
             f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P', 'CHR', 'MAF'))
             for i, x in enumerate(mysnpinfo):
                 if rr.pvals[i] == 0:
                     rr.pvals[i] = pval( (rr.scores[i] - rr.null_mu[i]) / rr.null_sigma[i])
                 f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\t{:d}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i], x.chrom, x.maf))
+
         if rr.betas is not None and write_betas:
-            betafile = self.args.outprefix + "_betas" + prefix + ".txt"
+            betafile = self.args.outprefix + "_betas" + suffix + ".txt"
             with open(betafile, 'w') as outstream:
                 gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
                 outstream.write(gene_names+"\n")
                 np.savetxt(outstream, rr.betas, fmt='%1.4e')
-        snp_select = np.where(rr.pvals < self.args.psnpcut)[0]
-        fname = self.args.outprefix + "_gene_snp_list" + prefix + ".txt"
-        pvals = jpa.pvals
 
         if len(selected_genes):
-            np.savetxt(self.args.outprefix + "_selected_genes" + prefix + ".txt", selected_genes, fmt='%i')
+            np.savetxt(self.args.outprefix + "_selected_genes" + suffix + ".txt", selected_genes, fmt='%i')
             pvals = jpa.pvals[selected_snps]
 
+        fname = self.args.outprefix + "_gene_snp_list" + suffix + ".txt"
         with open(fname, "w") as f:
             f.write("geneid\tsnpid\tpval\n")
-            for idx in snp_select:
-                gene_select = np.where(pvals[idx, :] < self.args.pgenecut)[0]
-                for gidx in gene_select:
-                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[idx].varid, pvals[idx][gidx]) )
+            for i, sidx in enumerate(snp_select_idx):
+                gene_select_idx = np.where(jpa.pvals[i, :] < self.args.pgenecut)[0]
+                for gidx in gene_select_idx:
+                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[sidx].varid, jpa.pvals[i, gidx]) )

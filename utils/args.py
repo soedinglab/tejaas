@@ -93,6 +93,7 @@ class Args():
         else:
             self.chrom   = None
         self.gx_file     = args.gx_filename
+        self.gxcorr_file = args.gxcorr_filename
         self.gx_datafmt  = args.gx_datafmt
         self.gtf_file    = args.gtf_filename
         self.gxtrim      = args.gxtrim
@@ -181,7 +182,13 @@ class Args():
                             type=str,
                             dest='gx_filename',
                             metavar='FILE',
-                            help='input expression file')
+                            help='input expression file for finding trans-eQTLs')
+
+        parser.add_argument('--gxcorr',
+                            type=str,
+                            dest='gxcorr_filename',
+                            metavar='FILE',
+                            help='input expression file for finding target genes')
 
         parser.add_argument('--gxfmt',
                             type=str,
@@ -337,7 +344,7 @@ class Args():
             '''
             Check if files exist.
             '''
-            for filepath in [self.vcf_file, self.oxf_file, self.fam_file, self.gx_file, self.gtf_file]:
+            for filepath in [self.vcf_file, self.oxf_file, self.fam_file, self.gx_file, self.gtf_file, self.gxcorr_file]:
                 if (filepath is not None):
                     try:
                         assert os.path.isfile(filepath)

@@ -29,5 +29,6 @@ for FPATH in ${GENOFILE} ${GXPRFILE} ${GENEINFO}; do
     fi
 done
 
-mpirun -n ${NCORE} ${RUN_PATH} --vcf ${GENOFILE} --gx ${GXPRFILE} --gtf ${GENEINFO} --include-SNPs ${INCSTRING} --chrom ${CHROM} --outprefix ${OUTPREFIX} \
+mpirun -n ${NCORE} ${RUN_PATH} --vcf ${GENOFILE} --include-SNPs ${INCSTRING} --chrom ${CHROM} \
+                               --gx ${GXPRFILE} --gxcorr ${GXPRFILE} --gtf ${GENEINFO} --outprefix ${OUTPREFIX} \
                                --method rr --prior-sigma 0.1 --knn 30 --cismask --null perm --psnpthres 0.001 --pgenethres 0.001

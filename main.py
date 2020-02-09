@@ -58,31 +58,38 @@ args = Args(comm, rank)
 logger = MyLogger(__name__)
 
 # List of variables that are broadcast over all slave nodes
-gtcent = None   # Centered genotype (x - mu), not divided by standard deviation, I x N
-gtnorm = None   # Centered and scaled genotype (x - mu) / sig, dimension I x N
-expr   = None   # Expression matrix, dimension G x N
-masklist = None # List of gene indices masked for each SNP
-maskcomp = None # List of CisMask (see utils/containers)
-maf = None      # List of MAF of each SNP as observed in the sample (or read separately from the population if file is provided)
+gtcent       = None   # Centered genotype (x - mu). Note: Not scaled (divided) by standard deviation. Dimension I x N.
+gtnorm       = None   # Centered and scaled genotype (x - mu) / sigma. Dimension I x N.
+expr         = None   # Expression matrix. Dimension G x N.
+tgene_gtnorm = None   # Centered and scaled genotype without KNN correction. Dimension I x N.
+tgene_expr   = None   # Expression matrix for finding target genes after RR-score. Dimension G x N.
+masklist     = None   # List of gene indices masked for each SNP. List of length I. Each element contains a list of indices for the cis-genes of a candidate SNP.
+maskcomp     = None   # List of CisMasks. Each element is a collection of (a) gene indices to be masked, and (b) all SNP indices which require this mask.
+maf          = None   # List of MAF of each SNP as observed in the sample (or read separately from the population if file is provided). Length I.
 if rank == 0:
     logger.debug("Using {:d} cores".format(ncore))
     data = Data(args)
     data.load()
-    gtcent = data.geno_centered
-    gtnorm = data.geno_normed
-    expr = data.expression
-    masklist = data.cismasks_list
-    maskcomp = data.cismasks_comp
-    snpinfo = data.snpinfo # slaves don't need this. Only needed for maf + outhandler in master node
-    geneinfo = data.geneinfo # slaves don't need this. Only needed for outhandler in master node
-    maf = readmaf.load(snpinfo, maf_file = args.maf_file)
+    gtcent       = data.geno_centered
+    gtnorm       = data.geno_normed
+    expr         = data.expression
+    tgene_gtnorm = data.tgene_geno_normed 
+    tgene_expr   = data.tgene_expression
+    masklist     = data.cismasks_list
+    maskcomp     = data.cismasks_comp
+    snpinfo      = data.snpinfo  # slaves don't need this. Only needed for maf + outhandler in master node.
+    geneinfo     = data.geneinfo # slaves don't need this. Only needed for outhandler in master node.
+    maf          = readmaf.load(snpinfo, maf_file = args.maf_file)
     logger.debug("After prefilter: {:d} SNPs and {:d} genes in {:d} samples".format(gtcent.shape[0], expr.shape[0], gtcent.shape[1]))
-gtcent = comm.bcast(gtcent, root = 0)
-gtnorm = comm.bcast(gtnorm, root = 0)
-expr   = comm.bcast(expr,  root = 0)
-masklist = comm.bcast(masklist, root = 0)
-maskcomp = comm.bcast(maskcomp, root = 0)
-maf  = comm.bcast(maf, root = 0)
+gtcent       = comm.bcast(gtcent, root = 0)
+gtnorm       = comm.bcast(gtnorm, root = 0)
+expr         = comm.bcast(expr,  root = 0)
+tgene_gtnorm = comm.bcast(tgene_gtnorm, root = 0)
+tgene_expr   = comm.bcast(tgene_expr, root = 0)
+masklist     = comm.bcast(masklist, root = 0)
+maskcomp     = comm.bcast(maskcomp, root = 0)
+maf          = comm.bcast(maf, root = 0)
+
 comm.barrier()
 if rank == 0: read_time = time.time()
 
@@ -100,25 +107,27 @@ if rank == 0: jpanull_time = time.time()
 # ==================================
 # Calculate JPA-score
 # with empirical p-values from the null file
-# TO-DO: 
-#   - use covariate corrected gene expression
-#   - why calculate full JPA-score for target genes of trans-eQTL SNPs?
 # ==================================
-if rank == 0: logger.debug("Computing JPA")
 if args.jpa:
-    jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist, get_pvals = True, qnull = args.jpanull_file)
-    jpa.compute()
-if args.rr:
-    # Run JPA for the target genes.
-    jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist, get_pvals = False)
+    if rank == 0: logger.debug("Computing JPA")
+    jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist, get_pvals = True, qnull_file = args.jpanull_file)
     jpa.compute()
 if rank == 0: jpa_time = time.time()
 
 
 # ==================================
 # Calculate the RR-score
-# either with perm-null (default)
-# or with MAF-null (old and deprecated, kept for legacy)
+#   - with perm-null (default)
+#   - with MAF-null (old and deprecated, kept for legacy)
+#
+# Find target genes 
+#   - Use separate confounder-corrected gene expression to find SNP-gene association p-values
+#   - Run JPA only on the trans-eQTLs (discovered with user-provided cutoff) with following options:
+#       a) qcalc = False // JPA-score is not calculated
+#       b) masklist = None // do not mask any gene. we also want cis-associations if any.
+#       c) get_pvals = False // p-values for significance of JPA-score is not calculated
+#       d) statmodel = 'fstat' // Use F-statistic as used in MatrixEQTL. Default is Z-statistic as used in CPMA.
+#
 # TO-DO:
 #  - The theory of MAF-null is not included in the manuscript, create a document
 # ==================================
@@ -129,8 +138,14 @@ if args.rr:
         rr = RevReg(gtnorm, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
     elif args.nullmodel == 'perm':
         rr = RevReg(gtcent, expr, sigbeta2, comm, rank, ncore, null = args.nullmodel, maf = maf, masks = maskcomp)
-    # Set get_betas = True to obtain the coefficients of multiple regression (stored in rr.betas)
-    rr.compute(get_betas = False)
+    rr.compute(get_betas = False)  # Set get_betas = True to obtain the coefficients of multiple regression (stored in rr.betas)
+
+    teqtl_id = None
+    if rank == 0: teqtl_id = np.where(rr.pvals < args.psnpcut)[0]
+    teqtl_id = comm.bcast(teqtl_id, root = 0)
+
+    tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+    tgjpa.compute()
 if rank == 0: rr_time = time.time()
 
 
@@ -142,7 +157,7 @@ if rank == 0:
     if args.jpa:
         ohandle.write_jpa_out(jpa)
     if args.rr:
-        ohandle.write_rr_out(jpa, rr)
+        ohandle.write_rr_out(rr, tgjpa, teqtl_id)
 if rank == 0: write_time = time.time()
 
 
