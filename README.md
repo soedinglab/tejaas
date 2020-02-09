@@ -138,6 +138,26 @@ mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 1:100 \
                        --knn 0 --method jpa --jpanull ${NULLFILE}
 ```
 
+4. Example of parallelizing job submission.
+```
+NMAX=20000 # number of SNPs per job
+for CHRM in $( seq 1 22 ); do
+    VCFFILE="file_path_here_${CHRM}.vcf.gz"
+    NTOT=$( calculate_no_of_SNPs_in_this_chromosome )
+    NJOB=$( echo $(( (NTOT + NMAX - 1)/NMAX )) )
+    for (( i=0; i < ${NJOB}; i++ )); do
+        STARTSNP=$(( NMAX * i + 1 ))
+        ENDSNP=$(( NMAX * (i + 1) ))
+        if [ ${ENDSNP} -gt ${NTOT} ]; then
+            ENDSNP=${NTOT}
+        fi
+        mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs ${STARTSNP}:${ENDSNP} --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
+                               --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
+                               --cismask --psnpthres 0.000001 --knn 20 --method rr --null perm --prior-sigma 0.05
+    done
+done
+```
+
 ## Contributors
 <!--
 <a href="https://github.com/soedinglab/tejaas/graphs/contributors">

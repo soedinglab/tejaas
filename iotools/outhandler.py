@@ -36,11 +36,11 @@ class Outhandler:
             mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
         fname = self.args.outprefix + "_rr" + suffix + ".txt"
         with open(fname, "w") as f:
-            f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'Pos', 'Q', 'Mu', 'Sigma', 'P', 'CHR', 'MAF'))
+            f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'CHR', 'Pos', 'MAF', 'Q', 'Mu', 'Sigma', 'P'))
             for i, x in enumerate(mysnpinfo):
                 if rr.pvals[i] == 0:
                     rr.pvals[i] = pval( (rr.scores[i] - rr.null_mu[i]) / rr.null_sigma[i])
-                f.write("{:s}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\t{:d}\t{:g}\n".format(x.varid, x.bp_pos, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i], x.chrom, x.maf))
+                f.write("{:s}\t{:d}\t{:d}\t{:g}\t{:g}\t{:g}\t{:g}\t{:g}\n".format(x.varid, x.chrom, x.bp_pos, x.maf, rr.scores[i], rr.null_mu[i], rr.null_sigma[i], rr.pvals[i]))
 
         if rr.betas is not None and write_betas:
             betafile = self.args.outprefix + "_betas" + suffix + ".txt"
