@@ -43,6 +43,9 @@ class Data():
         self._expr = None
         self._cismaskcomp = None
         self._cismasklist = None
+        self._tgene_gtnorm = None
+        self._tgene_gtcent = None
+        self._tgene_expr = None
 
     @property
     def geno_centered(self):
@@ -72,6 +75,18 @@ class Data():
     def expression(self):
         return self._expr
 
+    @property
+    def tgene_geno_normed(self):
+        return self._tgene_gtnorm
+
+    @property
+    def tgene_geno_centered(self):
+        return self._tgene_gtcent
+
+    @property
+    def tgene_expression(self):
+        return self._tgene_expr
+
 
     def select_donors(self, vcf_donors, expr_donors):
         ''' Make sure that donors are in the same order for both expression and genotype
@@ -91,6 +106,19 @@ class Data():
         genes = [x for x in info if x.ensembl_id in common]
         indices = [names.index(x.ensembl_id) for x in genes]
         return genes, np.array(indices)
+
+
+    def match_gx_indices(self, ref_gx, ref_donors, ref_gnames, gx, donors, gnames):
+        '''Match the indices of gx with those of ref_gx
+           Both gx and ref_gx are of size G x N
+           G = genes (gnames), N = donors
+        '''
+        gidx = np.array([gnames.index(x) for x in ref_gnames if x in gnames])
+        didx = np.array([donors.index(x) for x in ref_donors if x in donors])
+        if (gidx.shape[0] != len(ref_gnames)) or (didx.shape[0] != len(ref_donors)):
+            self.logger.error("Gene expression files have different donors and / or gene names. Please check. Program cancelled!")
+            raise
+        return gx[:, didx][gidx, :]
 
     
     def HWEcheck(self, x):
@@ -189,12 +217,18 @@ class Data():
             gt_donor_ids = vcf.donor_ids
             snpinfo = vcf.snpinfo
 
-        # Gene Expression
-        self.logger.debug("Reading expression levels")
+        # Read Gene Expression
+        self.logger.debug("Reading expression levels for trans-eQTL discovery")
         rpkm = ReadRPKM(self.args.gx_file, self.args.gx_datafmt)
         expression = rpkm.expression
         expr_donors = rpkm.donor_ids
         gene_names = rpkm.gene_names
+
+        # Read confounder corrected gene expression
+        if self.args.gxcorr_file is not None:
+            self.logger.debug("Reading expression levels for target gene discovery")
+            rpkm_corr = ReadRPKM(self.args.gxcorr_file, self.args.gx_datafmt)
+            exprcorr = self.match_gx_indices(expression, expr_donors, gene_names, rpkm_corr.expression, rpkm_corr.donor_ids, rpkm_corr.gene_names)
 
         self.logger.debug("Found {:d} genes of {:d} samples".format(expression.shape[0], expression.shape[1]))
         self.logger.debug("Reading gencode file for gene information")
@@ -207,6 +241,8 @@ class Data():
         vcfmask, exprmask = self.select_donors(gt_donor_ids, expr_donors)
         genes, indices = self.select_genes(gene_info, gene_names)       
         expression_selected = rpkm._normalize_expr(expression[:, exprmask][indices, :])
+        if self.args.gxcorr_file is not None:
+            exprcorr_selected = rpkm_corr._normalize_expr(exprcorr[:, exprmask][indices, :])
         self._geneinfo = genes
 
         dosage_masked = dosage[:, vcfmask]
@@ -218,6 +254,12 @@ class Data():
         self.logger.debug("Retained {:d} samples".format(vcfmask.shape[0]))
 
         ### Until here, all filters have been applied and geneinfo and snpinfo reflect current data ###
+
+        self._tgene_gtnorm, self._tgene_gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
+        if self.args.gxcorr_file is not None:
+            self._tgene_expr = exprcorr_selected
+        else:
+            self._tgene_expr = expression_selected
 
         if self.args.cismasking:
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
@@ -236,7 +278,9 @@ class Data():
         else:
             self.logger.debug("No KNN correction.")
             self._expr = expression_selected
-            self._gtnorm, self._gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
+            self._gtnorm = self._tgene_gtnorm.copy()
+            self._gtcent = self._tgene_gtcent.copy()
+            # self._gtnorm, self._gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
 
         if self.args.shuffle:
             usedmask = [gt_donor_ids[i] for i in vcfmask]

@@ -20,9 +20,16 @@ class OutputTest(unittest.TestCase):
     #             message += " : " + msg
     #         self.fail("Multi-line strings are unequal:\n" + message)
 
-    def test_output(self):
+    def test_rr(self):
         first = open("gold/GOLD_result_rr.txt")
         second = open("data/result_rr.txt")
+        self.assertMultiLineEqual(first.read(), second.read())
+        first.close()
+        second.close()
+
+    def test_tgene(self):
+        first = open("gold/GOLD_result_gene_snp_list.txt")
+        second = open("data/result_gene_snp_list.txt")
         self.assertMultiLineEqual(first.read(), second.read())
         first.close()
         second.close()

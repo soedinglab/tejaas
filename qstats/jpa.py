@@ -10,7 +10,7 @@ from utils.logs import MyLogger
 
 class JPA:
 
-    def __init__(self, x, y, comm, rank, ncore, qcalc, masks, get_pvals = False, qnull = None):
+    def __init__(self, x, y, comm, rank, ncore, qcalc, masks, get_pvals = False, qnull_file = None, statmodel = 'zstat'):
         self.gt = x
         self.gx = y
         self._pvals = None
@@ -29,7 +29,8 @@ class JPA:
         self.get_empirical_pvals = False
         if get_pvals:
             self.get_empirical_pvals = True
-        self.qnull_file = qnull
+        self.qnull_file = qnull_file
+        self.statmodel = statmodel
         self.logger = MyLogger(__name__)
 
 
@@ -65,7 +66,7 @@ class JPA:
         return res
 
 
-    def clinreg_old(self, geno, expr, nrow):
+    def clinreg_fstat(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
         clib = np.ctypeslib.load_library('../lib/linear_regression.so', _path)
         cfstat = clib.fit
@@ -90,7 +91,7 @@ class JPA:
         return res
 
 
-    def clinreg(self, geno, expr, nrow):
+    def clinreg_zstat(self, geno, expr, nrow):
         _path = os.path.dirname(__file__)
         clib = np.ctypeslib.load_library('../lib/linear_regression_zstat.so', _path)
         czstat = clib.fit
@@ -141,43 +142,63 @@ class JPA:
         This function reads the qnull file, if provided. Otherwise, generates uniform random number.
         Must be called from master and broadcast to the slaves.
         '''
-        if self.qnull_file is not None and os.path.isfile(self.qnull_file):
-            #qnull = self.read_qnull(self.qnull_file)
-            qnull = list()
-            with open(self.qnull_file, 'r') as instream:
-                for line in instream:
-                    lsplit = line.strip().split()
-                    q = float(lsplit[0].strip())
-                    qnull.append(q)
-            qnull = np.array(qnull)
-        else:
-            ngene = 10000
-            nsnps = 50000
-            qnull = np.array([self.jpascore(np.random.uniform(0, 1, size = ngene)) for i in range(nsnps)])
-        qmod = qnull[np.isfinite(qnull)]
-        self.logger.debug("Read {:d} null Q-scores".format(qmod.shape[0]))
+        qmod = np.array([])
+        if self.get_empirical_pvals:
+            if self.qnull_file is not None and os.path.isfile(self.qnull_file):
+                #qnull = self.read_qnull(self.qnull_file)
+                self.logger.debug("Read null Q-scores from {:s}".format(self.qnull_file))
+                qnull = list()
+                with open(self.qnull_file, 'r') as instream:
+                    for line in instream:
+                        lsplit = line.strip().split()
+                        q = float(lsplit[0].strip())
+                        qnull.append(q)
+                qnull = np.array(qnull)
+            else:
+                self.logger.debug("Creating null Q-scores from uniform p-value distribution")
+                ngene = 10000
+                nsnps = 50000
+                qnull = np.array([self.jpascore(np.random.uniform(0, 1, size = ngene)) for i in range(nsnps)])
+            qmod = qnull[np.isfinite(qnull)]
+            self.logger.debug("Obtained {:d} null Q-scores".format(qmod.shape[0]))
         return qmod
 
 
-    def slavejob(self, geno, expr, nmax, offset, masks, qnull, jpa = True, usemask = False, get_empirical_pvals = False):
+    def slavejob(self, geno, expr, nmax, offset, masks, qnull):
+        '''
+        Outputs.
+            pvals: p-values from every SNP-gene pair linear regression. Dimension I x G.
+            qscores: JPA-score from the above p-values. Dimension I.
+            p_jpa: p-values for the significance of JPA, calculated empirically. Dimension I.
+        '''
         self.logger.debug('Rank {:d} calculating SNPs {:d} to {:d}'.format(self.rank, offset+1, nmax + offset))
         nsnps = geno.shape[0]
         ngene = expr.shape[0]
-        pvals = self.clinreg(geno, expr, nmax)
-        if jpa:
+
+        # Simple linear regression calculating either f-statistic or Z-statistic for every SNP-gene pair
+        if self.statmodel == 'fstat':
+            pvals = self.clinreg_fstat(geno, expr, nmax)
+        elif self.statmodel == 'zstat':
+            pvals = self.clinreg_zstat(geno, expr, nmax)
+
+        # Calculate JPA-score
+        if self.qcalc:
             # calculate JPA for each SNP (using ngene pvals)
-            if usemask:
+            if self.usemask:
                 qscores = np.array([self.masked_jpascore(pvals[i*ngene : (i+1)*ngene], masks[i]) for i in range(nsnps)])
             else:
                 qscores = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(nsnps)])
         else:
             qscores = np.zeros(nsnps)
-        if get_empirical_pvals:
+
+        # Calculate empirical p-values for the JPA-scores
+        if self.get_empirical_pvals:
             ntop = min(500, int(qnull.shape[0] / 10))
             qecdf, qcut, lam, prefact = self.get_qecdf_fit(qnull, ntop)
             p_jpa = np.array([self.p_qscore(q, qecdf, qcut, lam, prefact) for q in qscores])
         else:
             p_jpa = np.array([1 for q in qscores])
+
         return pvals, qscores, p_jpa
 
 
@@ -218,8 +239,7 @@ class JPA:
         # ==================================
         # Data sent. Do the calculations
         # ==================================
-        pvals, qscores, p_jpa = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs, slave_gmasks, slave_qnull, 
-                                              jpa = self.qcalc, usemask = self.usemask, get_empirical_pvals = self.get_empirical_pvals)
+        pvals, qscores, p_jpa = self.slavejob(slave_geno, slave_expr, slave_nsnp, slave_offs, slave_gmasks, slave_qnull) 
 
         # ==================================
         # Collect the results
@@ -257,8 +277,7 @@ class JPA:
             self.mpicompute()
         else:
             qnull = self.get_qnull()
-            pvals, qscores, p_jpa = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, qnull, 
-                                                  jpa = self.qcalc, usemask = self.usemask, get_empirical_pvals = self.get_empirical_pvals)
+            pvals, qscores, p_jpa = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, qnull) 
             self._pvals = pvals.reshape(self.gt.shape[0], self.gx.shape[0])
             self._qscores = qscores
             if self.get_empirical_pvals:
