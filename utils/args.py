@@ -129,6 +129,7 @@ class Args():
         self.maketest  = args.maketest
 
         self.check_inputs()
+        self.crossmapfile = args.crossmapfile
 
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
@@ -294,6 +295,12 @@ class Args():
                             dest='maketest',
                             action='store_true',
                             help='whether to do test run')
+
+        parser.add_argument('--crossmap',
+                            type = str,
+                            default=None,
+                            dest = 'crossmapfile',
+                            help = 'Crossmapability file (Saha, Battle 2018) ')
 
         res = parser.parse_args()
         return res

@@ -14,6 +14,7 @@ from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo, CisMask
 from utils.logs import MyLogger
 from sklearn.decomposition import PCA
+import gzip
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
@@ -222,6 +223,10 @@ class Data():
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
             self._cismasklist = cismasking.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = cismasking.compress_cismasklist(self._cismasklist)
+            if self.args.crossmapfile is not None:
+                self._cismaskcomp = cismasking.extend_cismask(self._geneinfo, self._cismaskcomp, self.args.crossmapfile )
+
+        self.normalize_and_center_dosage(dosage_filtered_selected)
 
         if self.args.knncorr:
             self.logger.debug("Applying KNN correction on gene expression and genotype")

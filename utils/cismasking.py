@@ -88,3 +88,31 @@ def compress_cismasklist(genemasks):
             cismasks.append(thismask)
 
     return cismasks
+
+    def read_crossmap(crossmapfile):
+        gene_pairs = defaultdict(list)
+        with gzip.open(crossmapfile, 'r') as instream:
+            for line in instream:
+                arr = line.rstrip().split()
+                gene_pairs[arr[0].decode('utf-8')].append(arr[1].decode('utf-8'))
+        return gene_pairs
+
+    def extend_cismask(genes, cismaskcomp, crossmapfile):
+        cross_gene_dict = read_crossmap(crossmapfile)
+        genes_ix_dict = dict(zip([x.ensembl_id for x in genes], np.arange(len(genes))))
+        crossmap_cismaskcomp = list()
+        for cismask in cismaskcomp:
+            gene_list = list()  # list of crossmapped genes for the cismask
+            for gene in [genes[i] for i in cismask.rmv_id]:
+                gene_list += cross_gene_dict[gene.ensembl_id]
+            uniq_gene_list = list(set(gene_list))
+            ugene_dict = defaultdict(lambda: False) # significant speed-up by making a dict
+            for g in uniq_gene_list:
+                ugene_dict[g] = True
+            cm_gene2rmv_ix = [genes_ix_dict[x.ensembl_id] for x in genes if ugene_dict[x.ensembl_id]]
+            if len(cm_gene2rmv_ix) > 0:
+                new_cismask = cismask._replace(rmv_id = np.array( list(cismask.rmv_id) + cm_gene2rmv_ix))
+                crossmap_cismaskcomp.append(new_cismask)
+            else:
+                crossmap_cismaskcomp.append(cismask)
+        return crossmap_cismaskcomp
