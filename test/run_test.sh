@@ -7,9 +7,9 @@ DATA_DIR="data" # directory for downloading data and output results
 # DO NOT CHANGE BELOW
 #====================
 
-#module load intel/compiler/64/2017/17.0.2
-#module load intel/mkl/64/2017/2.174
-#module load intel/mpi/64/2017/2.174
+module load intel/compiler/64/2017/17.0.2
+module load intel/mkl/64/2017/2.174
+module load intel/mpi/64/2017/2.174
 
 FTP_URL="http://wwwuser.gwdg.de/~compbiol/tejaas/example"
 RUN_PATH="../bin/tejaas"

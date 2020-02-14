@@ -1,5 +1,7 @@
 import numpy as np
 from utils.containers import GeneInfo, CisMask
+from collections import defaultdict
+import gzip 
 
 '''
 get_cismasklist

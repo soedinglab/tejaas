@@ -268,7 +268,7 @@ class Data():
             if self.args.crossmapfile is not None:
                 self._cismaskcomp = cismasking.extend_cismask(self._geneinfo, self._cismaskcomp, self.args.crossmapfile )
 
-        self.normalize_and_center_dosage(dosage_filtered_selected)
+        # self.normalize_and_center_dosage(dosage_filtered_selected)
 
         if self.args.knncorr:
             self.logger.debug("Applying KNN correction on gene expression and genotype")
