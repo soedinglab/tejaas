@@ -14,7 +14,7 @@ def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', '
     annotfile = os.path.realpath(filepath)
     geneinfo = list()
     lncRNA_list = ["macro_lncRNA", "non_coding", "bidirectional_promoter_lncRNA", "3prime_overlapping_ncRNA", 
-                   "sense_overlapping", "processed_transcript", "sense_intronic", "antisense", "lincRNA"]
+                   "sense_overlapping", "processed_transcript", "sense_intronic", "antisense", "lincRNA", "miRNA"]
     mode = "v19"
     if re.search("v26", filepath):
         mode = "v26"

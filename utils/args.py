@@ -132,6 +132,8 @@ class Args():
         self.check_inputs()
         self.crossmapfile = args.crossmapfile
 
+        self.nogtknn = args.nogtknn
+
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
             if self.rr:
@@ -308,6 +310,12 @@ class Args():
                             default=None,
                             dest = 'crossmapfile',
                             help = 'Crossmapability file (Saha, Battle 2018) ')
+
+        parser.add_argument('--nogtknn',
+                            dest='nogtknn',
+                            default=False,
+                            action='store_true',
+                            help = '[dev] decide not tu use knn corrected genotype')
 
         res = parser.parse_args()
         return res

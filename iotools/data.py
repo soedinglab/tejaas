@@ -274,7 +274,10 @@ class Data():
             self.logger.debug("Applying KNN correction on gene expression and genotype")
             gx_corr, gt_corr = knn.knn_correction(expression_selected.T, dosage_filtered_selected, self.args.knn_nbr)
             self._expr = rpkm._normalize_expr(gx_corr.T)
-            self._gtnorm, self._gtcent = self.normalize_and_center_dosage(gt_corr)
+            if self.args.nogtknn:
+                self._gtnorm, self._gtcent = self.normalize_and_center_dosage(dosage_filtered_selected)
+            else:
+                self._gtnorm, self._gtcent = self.normalize_and_center_dosage(gt_corr)
         else:
             self.logger.debug("No KNN correction.")
             self._expr = expression_selected
