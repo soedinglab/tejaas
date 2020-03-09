@@ -30,7 +30,7 @@ class Outhandler:
                 f.write("{:s}\t{:g}\t{:g}\n".format(snp.varid, scores[i], pvals[i]))
 
 
-    def write_rr_out(self, rr, jpa, snp_select_idx, suffix = "", selected_snps = [], selected_genes = [], write_betas = False):
+    def write_rr_out(self, rr, tgknn, jpa, snp_select_idx, suffix = "", selected_snps = [], selected_genes = [], write_betas = False):
         mysnpinfo = self.snpinfo
         if len(selected_snps):
             mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
@@ -52,6 +52,14 @@ class Outhandler:
         if len(selected_genes):
             np.savetxt(self.args.outprefix + "_selected_genes" + suffix + ".txt", selected_genes, fmt='%i')
             pvals = jpa.pvals[selected_snps]
+
+        fname = self.args.outprefix + "_gene_snp_list_knn" + suffix + ".txt"
+        with open(fname, "w") as f:
+            f.write("geneid\tsnpid\tpval\n")
+            for i, sidx in enumerate(snp_select_idx):
+                gene_select_idx = np.where(tgknn.pvals[i, :] < self.args.pgenecut)[0]
+                for gidx in gene_select_idx:
+                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[sidx].varid, tgknn.pvals[i, gidx]) )
 
         fname = self.args.outprefix + "_gene_snp_list" + suffix + ".txt"
         with open(fname, "w") as f:

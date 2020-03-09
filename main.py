@@ -121,6 +121,7 @@ if rank == 0: jpa_time = time.time()
 #   - with MAF-null (old and deprecated, kept for legacy)
 #
 # Find target genes 
+#   - Use KNN corrected gene expression and SNPs to find SNP-gene association p-values
 #   - Use separate confounder-corrected gene expression to find SNP-gene association p-values
 #   - Run JPA only on the trans-eQTLs (discovered with user-provided cutoff) with following options:
 #       a) qcalc = False // JPA-score is not calculated
@@ -144,6 +145,9 @@ if args.rr:
     if rank == 0: teqtl_id = np.where(rr.pvals < args.psnpcut)[0]
     teqtl_id = comm.bcast(teqtl_id, root = 0)
 
+    tgknn = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+    tgknn.compute()
+
     tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
     tgjpa.compute()
 if rank == 0: rr_time = time.time()
@@ -157,7 +161,7 @@ if rank == 0:
     if args.jpa:
         ohandle.write_jpa_out(jpa)
     if args.rr:
-        ohandle.write_rr_out(rr, tgjpa, teqtl_id)
+        ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id)
 if rank == 0: write_time = time.time()
 
 
