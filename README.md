@@ -92,7 +92,7 @@ Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n
 `--cismask`   |            | Flag to mask cis-Genes within a window  for each candidate SNP. Gene positions are obtained from the GENCODE annotation file.  | Optional | `False`
 `--window`    | `FLOAT`    | Window (number of base pairs) used for masking cis genes | Optional | 1e6 
 `--prior-sigma`| `FLOAT`   | Standard deviation of the normal prior for reverse multiple linear regression | Optional | 0.1
-`--knn`       | `INT`      | Number of neighbours for KNN (use 0 if you do not want to use KNN) | Optional | 30
+`--knn`       | `INT`      | Number of neighbours for KNN (use 0 if you do not want to use KNN) | Optional | 0
 `--psnpthres` | `FLOAT`    | Target genes will be reported only for trans-eQTLs below this threshold p-value for RR/JPA-score | Optional | 0.0001
 `--pgenethres`| `FLOAT`    | Target genes will be reported only if their association with trans-eQTLs are below this threshold p-value | Optional | 0.05
 `--jpanull`   | `FILEPATH` | File containing list of null model JPA-scores | Optional | -- 

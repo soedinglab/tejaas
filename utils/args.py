@@ -259,7 +259,7 @@ class Args():
                             type = int,
                             dest = 'knn',
                             help = 'Number of neighbours for KNN (use 0 if you do not want KNN correction)',
-                            default = 30)
+                            default = 0)
 
         parser.add_argument('--psnpthres',
                             default=0.0001,
