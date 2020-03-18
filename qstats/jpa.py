@@ -187,7 +187,11 @@ class JPA:
             if self.usemask:
                 qscores = np.array([self.masked_jpascore(pvals[i*ngene : (i+1)*ngene], masks[i]) for i in range(nsnps)])
             else:
-                qscores = np.array([self.jpascore(pvals[i*ngene : (i+1)*ngene]) for i in range(nsnps)])
+                nzpvals = pvals.copy()
+                zero_mask = nzpvals == 0
+                nzpmin = np.min(nzpvals[~zero_mask])
+                nzpvals[zero_mask] = nzpmin
+                qscores = np.array([self.jpascore(nzpvals[i*ngene : (i+1)*ngene]) for i in range(nsnps)])
         else:
             qscores = np.zeros(nsnps)
 

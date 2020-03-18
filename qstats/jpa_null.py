@@ -25,8 +25,10 @@ class JPANULL:
 
 
     def write_qscores(self):
+        qmax = np.max(self._qscores)
+        valid_qscores = self._qscores[np.where(self._qscores < qmax)]
         with open(self.outfile, 'w') as fout:
-            for qnull in self._qscores:
+            for qnull in valid_qscores:
                 fout.write(f"{qnull}\n")
 
 
@@ -81,6 +83,8 @@ class JPANULL:
         slave_Zmean = self.comm.bcast(thisZmean, root = 0)
         slave_n = self.comm.scatter(nlist, root = 0)
         self.comm.barrier()
+
+        if self.rank == 0: self.logger.debug("Broadcast W, Q and Zmean to the slave nodes")
 
         # ==================================
         # Data sent. Do the calculations
@@ -138,9 +142,11 @@ class JPANULL:
             self.logger.debug("Eigendecomposition done")
             # still some eigenvalues are negative. force them to zero if they are negligible. (!!!!!!!!!!!)
             # check if everything is ok
-            Wsparse = W.copy()
-            Wsparse[np.where(W < 0)] = 0
-            W = Wsparse
+            #Wsparse = W.copy()
+            #Wsparse[np.where(W < 0)] = 0
+            #W = Wsparse
+            W[np.where(W < 0)] = 0
+            self.logger.debug("Forced negative eigenvalues to zero")
             #if not np.allclose(C, Q @ np.diag(W) @ Q.T):
             #    self.logger.error("Eigen vectors could not be forced to positive")
             #    exit
@@ -148,15 +154,15 @@ class JPANULL:
             #    W = Wsparse
             #    self.logger.debug("Eigen vectors are forced to positive")
             Zmean = np.mean(zscores, axis = 0)
-        
-        self._W = self.comm.bcast(W, root = 0)
-        self._Q = self.comm.bcast(Q, root = 0)
-        self._Zmean = self.comm.bcast(Zmean, root = 0)
+            self._W = W
+            self._Q = Q
+            self._Zmean = Zmean
         self.comm.barrier()
 
 
     def compute(self):
         self.WQ_mpiwrap()
+        if self.rank == 0: self.logger.debug("Start MPI calculation")
         if self.mpi:
             self.mpicompute()
         else:

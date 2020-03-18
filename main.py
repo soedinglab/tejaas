@@ -40,7 +40,6 @@ from iotools.outhandler import Outhandler
 from iotools import readmaf
 from iotools import readqnull
 
-
 # ==================================
 # Start MPI calculation
 # ==================================
