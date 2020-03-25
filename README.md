@@ -159,8 +159,6 @@ done
 ```
 
 ## Contributors
-<!--
 <a href="https://github.com/soedinglab/tejaas/graphs/contributors">
-  <img src="https://contributors-img.firebaseapp.com/image?repo=soedinglab/tejaas" />
+  <img src="https://contributors-img.web.app/image?repo=soedinglab/tejaas" />
 </a>
--->
