@@ -97,22 +97,6 @@ def affy_exon_chip(filepath, include_chrom = 0, include_chroms=['{:d}'.format(x 
                     include_chroms = ['{:d}'.format(include_chrom)]
                 if chrom not in include_chroms: continue
 
-                rowtype = None
-                gene_id = None
-                gene_name = None
-                infolist = [x.strip() for x in linesplit[8].split(';')]
-                for info in infolist:
-                    if info.startswith('gene_type'):
-                        rowtype = info.split(' ')[1].replace('"','')
-                    elif info.startswith('gene_id'):
-                        gene_id = info.split(' ')[1].replace('"','')
-                    elif info.startswith('gene_name'):
-                        gene_name = info.split(' ')[1].replace('"','')
-
-                # Any particular biotype selected?
-                if 'all' not in biotype:
-                    if rowtype not in biotype: continue
-
                 # TSS: gene start (0-based coordinates for BED)
                 if linesplit[3] == '+':
                     start = np.int64(linesplit[4]) - 1
