@@ -143,6 +143,7 @@ class Data():
         nlowf = 0
         nlowf_actual = 0
         nhwep = 0
+        nalle = 0
         for i, snp in enumerate(snpinfo):
             pos = snp.bp_pos
             refAllele = snp.ref_allele
@@ -154,6 +155,10 @@ class Data():
             # Skip non-single letter polymorphisms
             if len(refAllele) > 1 or len(effectAllele) > 1:
                 npoly += 1
+                continue
+            # Skip unknown alleles
+            if refAllele not in SNP_COMPLEMENT or effectAllele not in SNP_COMPLEMENT:
+                nalle += 1
                 continue
             # Skip ambiguous strands
             if SNP_COMPLEMENT[refAllele] == effectAllele:
@@ -179,13 +184,14 @@ class Data():
                 # Remove SNPs out of HWE
                 hwep = self.HWEcheck(intdosage)
                 if(hwep < 0.000001):
-                   nhwep += 1
-                   # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
-                   continue
+                    nhwep += 1
+                    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
+                    continue
             new_snp = snp._replace(maf = maf_actual)
             newsnps.append(new_snp)
             newdosage.append(dosage[i])
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
+        self.logger.debug("Removed {:d} SNPs because of unknown allele symbol".format(nalle))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
         self.logger.debug("Removed {:d} SNPs because of low MAF < {:g}".format(nlowf, maf_limit))

@@ -161,7 +161,7 @@ if rank == 0:
     if args.jpa:
         ohandle.write_jpa_out(jpa)
     if args.rr:
-        ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id)
+        ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id, write_betas = False)
 if rank == 0: write_time = time.time()
 
 

@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn.decomposition import PCA
 
-def knn_correction(expr, dosage, K, f=0.1):
+def knn_correction(expr, dosage, K, f=1):
     pca = PCA(n_components=min(expr.shape[0], expr.shape[1]) )
     pca.fit(expr) # requires N x G
     expr_pca = pca.transform(expr)

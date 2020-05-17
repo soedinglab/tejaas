@@ -113,7 +113,8 @@ def extend_cismask(genes, cismaskcomp, crossmapfile):
             ugene_dict[g] = True
         cm_gene2rmv_ix = [genes_ix_dict[x.ensembl_id] for x in genes if ugene_dict[x.ensembl_id]]
         if len(cm_gene2rmv_ix) > 0:
-            new_cismask = cismask._replace(rmv_id = np.array( list(cismask.rmv_id) + cm_gene2rmv_ix))
+            new_mask_genes = sorted(list(set(list(cismask.rmv_id) + cm_gene2rmv_ix)))
+            new_cismask = cismask._replace(rmv_id = np.array(new_mask_genes))
             crossmap_cismaskcomp.append(new_cismask)
         else:
             crossmap_cismaskcomp.append(cismask)

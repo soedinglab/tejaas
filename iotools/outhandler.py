@@ -30,10 +30,8 @@ class Outhandler:
                 f.write("{:s}\t{:g}\t{:g}\n".format(snp.varid, scores[i], pvals[i]))
 
 
-    def write_rr_out(self, rr, tgknn, jpa, snp_select_idx, suffix = "", selected_snps = [], selected_genes = [], write_betas = False):
+    def write_rr_out(self, rr, tgknn, jpa, snp_select_idx, suffix = "", write_betas = False):
         mysnpinfo = self.snpinfo
-        if len(selected_snps):
-            mysnpinfo = [self.snpinfo[int(i)] for i in selected_snps]
         fname = self.args.outprefix + "_rr" + suffix + ".txt"
         with open(fname, "w") as f:
             f.write("{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\t{:s}\n".format('ID', 'CHR', 'Pos', 'MAF', 'Q', 'Mu', 'Sigma', 'P'))
@@ -47,11 +45,7 @@ class Outhandler:
             with open(betafile, 'w') as outstream:
                 gene_names = " ".join([g.ensembl_id for g in self.geneinfo])
                 outstream.write(gene_names+"\n")
-                np.savetxt(outstream, rr.betas, fmt='%1.4e')
-
-        if len(selected_genes):
-            np.savetxt(self.args.outprefix + "_selected_genes" + suffix + ".txt", selected_genes, fmt='%i')
-            pvals = jpa.pvals[selected_snps]
+                np.savetxt(outstream, rr.betas[snp_select_idx,:], fmt='%1.4e')
 
         fname = self.args.outprefix + "_gene_snp_list_knn" + suffix + ".txt"
         with open(fname, "w") as f:
