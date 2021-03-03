@@ -112,6 +112,15 @@ if args.jpa:
     if rank == 0: logger.debug("Computing JPA")
     jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist, get_pvals = True, qnull_file = args.jpanull_file)
     jpa.compute()
+
+    ### Calculate target genes
+    teqtl_id = None
+    if rank == 0: teqtl_id = np.where(jpa.jpa_pvals < args.psnpcut)[0]
+    teqtl_id = comm.bcast(teqtl_id, root = 0)
+
+    tgjpa = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+    tgjpa.compute()
+
 if rank == 0: jpa_time = time.time()
 
 
@@ -159,7 +168,7 @@ if rank == 0: rr_time = time.time()
 if rank == 0: 
     ohandle = Outhandler(args, snpinfo, geneinfo)
     if args.jpa:
-        ohandle.write_jpa_out(jpa)
+        ohandle.write_jpa_out(jpa, tgjpa, teqtl_id)
     if args.rr:
         ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id, write_betas = False)
 if rank == 0: write_time = time.time()

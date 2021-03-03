@@ -20,7 +20,7 @@ class Outhandler:
         if not os.path.exists(dirname): os.makedirs(dirname)
 
 
-    def write_jpa_out(self, jpa):
+    def write_jpa_out(self, jpa, tgjpa, snp_select_idx):
         fname = self.args.outprefix + "_jpa.txt"
         scores = jpa.scores
         pvals = jpa.jpa_pvals
@@ -28,6 +28,15 @@ class Outhandler:
             f.write("snpid\tjpascore\tp-value\n")
             for i, snp in enumerate(self.snpinfo):
                 f.write("{:s}\t{:g}\t{:g}\n".format(snp.varid, scores[i], pvals[i]))
+
+        fname = self.args.outprefix + "_gene_snp_list.txt"
+        with open(fname, "w") as f:
+            f.write("geneid\tsnpid\tpval\n")
+            for i, sidx in enumerate(snp_select_idx):
+                gene_select_idx = np.where(tgjpa.pvals[i, :] < self.args.pgenecut)[0]
+                for gidx in gene_select_idx:
+                    f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[sidx].varid, tgjpa.pvals[i, gidx]) )
+
 
 
     def write_rr_out(self, rr, tgknn, jpa, snp_select_idx, suffix = "", write_betas = False):
