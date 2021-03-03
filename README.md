@@ -29,6 +29,7 @@ Additionally, it also implements a non-linear unsupervised confounder correction
   - [statsmodel](http://www.statsmodels.org/stable/index.html) / used for ECDF calculation in JPA-score
   - [Pygtrie](https://pypi.org/project/pygtrie/) / used for reading MAF file in RR-score / maf null
   - [mpi4py](https://mpi4py.readthedocs.io/en/stable/) linked to MPI and MKL for python parallelization
+  - [scikit-learn](https://scikit-learn.org/stable/index.html) used for PCA decomposition in KNN correction
 
 Optional:
 - any flavor of MPI linked to the Intel MKL library (e.g. OpenMPI)
