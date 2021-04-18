@@ -13,7 +13,7 @@ from iotools.readvcf import ReadVCF
 from iotools.readRPKM import ReadRPKM
 from utils.containers import GeneInfo, CisMask
 from utils.logs import MyLogger
-from sklearn.decomposition import PCA
+# from sklearn.decomposition import PCA
 import gzip
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}

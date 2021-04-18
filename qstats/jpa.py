@@ -10,7 +10,7 @@ from utils.logs import MyLogger
 
 class JPA:
 
-    def __init__(self, x, y, comm, rank, ncore, qcalc, masks, get_pvals = False, qnull_file = None, statmodel = 'zstat'):
+    def __init__(self, x, y, comm, rank, ncore, qcalc, masks, get_pvals = False, qnull_file = None, statmodel = 'zstat', target_fdr = None):
         self.gt = x
         self.gx = y
         self._pvals = None
@@ -32,6 +32,10 @@ class JPA:
         self.qnull_file = qnull_file
         self.statmodel = statmodel
         self.logger = MyLogger(__name__)
+        self.target_fdr = target_fdr
+        if self.target_fdr is not None:
+            self.adj_pvals = list()
+            self.pass_fdr  = list()
 
 
     @property
@@ -257,6 +261,10 @@ class JPA:
         if self.rank == 0:
             self._pvals = recvbuf.reshape(sum(nsnp), ngene)
 
+            ## include FDR correction
+            if self.target_fdr is not None:
+                self.get_fdr_each()
+
         qscores = self.comm.gather(qscores, root = 0)
         p_jpa = self.comm.gather(p_jpa, root = 0)
 
@@ -270,7 +278,57 @@ class JPA:
             assert p_jpa is None
 
         return
-            
+
+    def get_fdr_each(self):
+        N_snp  = self.gt.shape[0]
+        N_gene = self.gx.shape[0]
+        for i in range(N_snp):
+            snp_gene_pval = list()
+            for j in range(N_gene):
+                if self.usemask and j in self.masks[i]:
+                    print(f"for snp {i} skipped gene {j}")
+                    continue  # skip pair, gene is masked
+                else:
+                    snp_gene_pval.append((i,j,self._pvals[i,j]))
+            pass_fdr, adj_pvals = self.bh_procedure( snp_gene_pval, self.target_fdr )
+            self.pass_fdr  = self.pass_fdr + pass_fdr
+            self.adj_pvals = self.adj_pvals + adj_pvals
+        return
+
+    def get_fdr_all(self):
+        N_snp  = self.gt.shape[0]
+        N_gene = self.gx.shape[0]
+        snp_gene_pval = list()
+        for i in range(N_snp):
+            for j in range(N_gene):
+                if self.usemask and j in self.masks[i]:
+                    continue  # skip pair, gene is masked
+                else:
+                    snp_gene_pval.append((i,j,self._pvals[i,j]))
+        self.pass_fdr, self.adj_pvals = self.bh_procedure( snp_gene_pval, self.target_fdr )
+        return
+
+    def bh_procedure(self, snp_gene_pval, target_fdr):
+        self.logger.debug("Calculating FDR ... sorting {:d} SNP-gene pairs".format(len(snp_gene_pval)))
+        sorted_pairs   = sorted(snp_gene_pval, key=lambda item: item[2])
+        n_tests        = len(sorted_pairs) # NOT equivalent to ntrans-eqtls * ngenes, because ntrans is filtered
+        pass_snps      = list()
+        bh_index_limit = -1
+        for i, snp_pval in enumerate(sorted_pairs[::-1]):
+            bh_factor = ( (n_tests-i) / n_tests ) * target_fdr
+            if snp_pval[2] > bh_factor:
+                continue
+            else:
+                bh_index_limit = n_tests - i - 1
+                break
+        if bh_index_limit < 0:
+            self.logger.debug("No significant SNP-gene pairs @ {:f} FDR for SNP".format(target_fdr))
+            return [], []
+        else:
+            pass_fdr  = [ sorted_pairs[i] for i in range(bh_index_limit + 1)]
+            adj_pvals = [ sorted_pairs[i][2] * ( n_tests / ( i + 1 ) ) for i in range(n_tests)] # equiv to report FDR
+            return pass_fdr, adj_pvals[:len(pass_fdr)]
+
 
     def compute(self):
         if self.mpi:
@@ -279,6 +337,9 @@ class JPA:
             qnull = self.get_qnull()
             pvals, qscores, p_jpa = self.slavejob(self.gt, self.gx, self.gt.shape[0], 0, self.masks, qnull) 
             self._pvals = pvals.reshape(self.gt.shape[0], self.gx.shape[0])
+            ## include FDR correction
+            if self.target_fdr is not None:
+                self.get_fdr_each()
             self._qscores = qscores
             if self.get_empirical_pvals:
                 self._jpa_pvals = p_jpa

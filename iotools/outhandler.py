@@ -71,3 +71,10 @@ class Outhandler:
                 gene_select_idx = np.where(jpa.pvals[i, :] < self.args.pgenecut)[0]
                 for gidx in gene_select_idx:
                     f.write( "{:s}\t{:s}\t{:g}\n".format(self.geneinfo[gidx].ensembl_id, self.snpinfo[sidx].varid, jpa.pvals[i, gidx]) )
+
+        if jpa.target_fdr is not None:
+            fname = self.args.outprefix + "_gene_snp_list_FDR" + suffix + ".txt"
+            with open(fname, 'w') as f:
+                f.write("geneid\tsnpid\tpval\tadj_pval\n")
+                for i, pairs in enumerate(jpa.pass_fdr):
+                    f.write( "{:s}\t{:s}\t{:g}\t{:g}\n".format(self.geneinfo[pairs[1]].ensembl_id, self.snpinfo[snp_select_idx[pairs[0]]].varid, pairs[2], jpa.adj_pvals[i]) )

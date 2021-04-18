@@ -115,7 +115,7 @@ if args.jpa:
 
     ### Calculate target genes
     teqtl_id = None
-    if rank == 0: teqtl_id = np.where(jpa.jpa_pvals < args.psnpcut)[0]
+    if rank == 0: teqtl_id = np.where(jpa.jpa_pvals <= args.psnpcut)[0]
     teqtl_id = comm.bcast(teqtl_id, root = 0)
 
     tgjpa = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
@@ -151,14 +151,20 @@ if args.rr:
     rr.compute(get_betas = False)  # Set get_betas = True to obtain the coefficients of multiple regression (stored in rr.betas)
 
     teqtl_id = None
-    if rank == 0: teqtl_id = np.where(rr.pvals < args.psnpcut)[0]
+    if rank == 0: teqtl_id = np.where(rr.pvals <= args.psnpcut)[0]
     teqtl_id = comm.bcast(teqtl_id, root = 0)
 
     tgknn = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
     tgknn.compute()
 
-    tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
-    tgjpa.compute()
+    if args.usefdr:
+        # add masks
+        tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, [masklist[i] for i in teqtl_id], get_pvals = False, statmodel = 'fstat', target_fdr=0.5)
+        tgjpa.compute()
+    else:
+        tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+        tgjpa.compute()
+
 if rank == 0: rr_time = time.time()
 
 

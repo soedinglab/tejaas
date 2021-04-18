@@ -131,6 +131,11 @@ class Args():
 
         self.check_inputs()
         self.crossmapfile = args.crossmapfile
+        self.usefdr = False
+        self.target_fdr = args.target_fdr
+        if self.target_fdr is not None:
+            self.usefdr = True
+
 
         self.nogtknn = args.nogtknn
 
@@ -316,6 +321,13 @@ class Args():
                             default=False,
                             action='store_true',
                             help = '[dev] decide not tu use knn corrected genotype')
+
+        parser.add_argument('--fdrgenethres',
+                            default=None,
+                            type=float,
+                            dest='target_fdr',
+                            metavar='FDR',
+                            help='enable FDR correction up to a certain cutoff for target gene discovery')
 
         res = parser.parse_args()
         return res

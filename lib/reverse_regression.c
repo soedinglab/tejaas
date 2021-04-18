@@ -216,6 +216,150 @@ cleanup_GXT:
 }		/* -----  end of function qscore  ----- */
 
 
+bool qscore_corr ( double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, int null, double* MAF, double* Q, double* P, double* MUQ, double* SIGQ )
+{
+	bool success;
+	int info;
+	int nS;                                     /* number of components of SVD */
+	double dQ;
+	double muQmaf, sig2Qmaf, sumW2nn;
+
+	success = false;
+	nS = min(ngene, nsample);
+
+	double *GXT = (double *) calloc( (unsigned long) ngene   * nsample * sizeof( double ), 64 );
+	if (GXT == NULL) {success = false; goto cleanup_GXT;}
+
+	double *S   = (double *) calloc(                           nS      * sizeof( double ), 64 );
+	if (S == NULL) {success = false; goto cleanup_S;}
+
+	double *U   = (double *) calloc( (unsigned long) nsample * nS      * sizeof( double ), 64 );
+	if (U == NULL) {success = false; goto cleanup_U;}
+
+	double *VT  = (double *) calloc( (unsigned long )  nS * ngene      * sizeof( double ), 64 );
+	if (VT == NULL) {success = false; goto cleanup_VT;}
+
+	double *SM  = (double *) calloc( (unsigned long)    nsnp * nS      * sizeof( double ), 64 );
+	if (SM == NULL) {success = false; goto cleanup_SM;}
+
+	double *W   = (double *) calloc( (unsigned long)      nS * nS      * sizeof( double ), 64 );
+	if (W == NULL) {success = false; goto cleanup_W;}
+
+	double *X   = (double *) calloc(                           nsample * sizeof( double ), 64 );
+	if (X == NULL) {success = false; goto cleanup_X;}
+
+	double *SX2 = (double *) calloc(                           nsnp    * sizeof( double ), 64 );
+	if (SX2 == NULL) {success = false; goto cleanup_SX2;}
+
+	double *D1  = (double *) calloc(                           nS      * sizeof( double ), 64 );
+	if (D1 == NULL) {success = false; goto cleanup_D1;}
+
+
+	success = transpose(GX, ngene, nsample, GXT);
+	if ( success == false ) goto cleanup;
+
+	clock_t start, end;
+	double cpu_time_used;
+	start = clock();
+	success = dsvd (GXT, nsample, ngene, S, U, VT);
+	if ( success == false ) goto cleanup;
+
+	for ( int i = 2; i < 32; i++ ) {
+		S[nS-i] = S[nS-32];
+	}
+
+	success = genotype_variance(GT, nsnp, nsample, SX2, null);
+
+	success = getSmod (S, SM, SX2, SB2, nsnp, nS);
+	if ( success == false ) goto cleanup;
+
+	if (null == MAF_NULL) {                            /* fixed W for all SNPs with MAF null, because sigmax2 = 1 */
+		success = getW (U, SM, W, nsample, nS, 0, 1);
+		if ( success == false ) goto cleanup;
+		getWnullmaf ( W, SM, &muQmaf, &sig2Qmaf, &sumW2nn, nS, 0);
+	}
+
+	end = clock();
+	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+	// printf("SVD calculation took %f seconds \n", cpu_time_used);
+
+	for ( int i = 0; i < nsnp; i++ ) {
+
+		if (null == NO_NULL ) {
+			// duplicated from PERM_NULL, what should we do by default?
+			success = getW (U, SM, W, nsample, nS, i*nS, SX2[i]);
+			if ( success == false ) goto cleanup;
+			MUQ[i] = -1.0;
+			SIGQ[i] = -1.0;
+			P[i] = 1.0;
+		}
+
+		if (null == PERM_NULL) {                        /* gets W for every SNP if using permutation null, because sigmax2 is not fixed */
+			// Here probably add some check when G < N
+		    // [X] and also multiply by 1/SX2[i] because it is not fixed here
+		    // DONE!
+			success = getW (U, SM, W, nsample, nS, i*nS, SX2[i]);
+			if ( success == false ) goto cleanup;
+		}
+
+		for ( int j = 0; j < nsample; j++) {
+			X[j] = GT[ i*nsample + j ];
+		}
+
+		Q[i] = vecT_smat_vec ( nS, X, W, D1 );
+
+		if ( null == PERM_NULL ) {
+			P[i] = permuted_null ( nS, X, W, Q[i], &MUQ[i], &SIGQ[i], nsample );
+			// printf("Pval: %f \n", P[i]);
+		}
+		else if ( null == MAF_NULL ) {
+			MUQ[i] = muQmaf;
+			SIGQ[i] = sqrt( sig2Qmaf + (gt4maf(MAF[i]) - 3) * sumW2nn );
+			P[i] = cdf_norm (Q[i], MUQ[i], SIGQ[i] ); //qnull_maf(Q[i], MUQ[i], SIGQ[i]);
+		}
+
+
+
+	}
+
+	end = clock();
+	cpu_time_used = ((double) (end - start)) / CLOCKS_PER_SEC;
+	// printf("RR calculation took %f seconds \n", cpu_time_used);
+
+cleanup:
+cleanup_D1:
+	//printf("cleaning D1\n");
+	free(D1);
+cleanup_SX2:
+	//printf("cleaning SX2\n");
+	free(SX2);
+cleanup_X:
+	//printf("cleaning X\n");
+	free(X);
+cleanup_W:
+	//printf("cleaning W\n");
+	free(W);
+cleanup_SM:
+	//printf("cleaning SM\n");
+	free(SM);
+cleanup_VT:
+	//printf("cleaning VT\n");
+	free(VT);
+cleanup_U:
+	//printf("cleaning U\n");
+	free(U);
+cleanup_S:
+	//printf("cleaning S\n");
+	free(S);
+cleanup_GXT:
+	//printf("cleaning GXT\n");
+	free(GXT);
+
+	return success;
+
+}		/* -----  end of function qscore  ----- */
+
+
 bool betas(double* GT, double* GX, double* SB2, int ngene, int nsnp, int nsample, double* B)
 {
 	bool success;
