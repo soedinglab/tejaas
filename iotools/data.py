@@ -142,6 +142,7 @@ class Data():
         nlowf = 0
         nlowf_actual = 0
         nhwep = 0
+        nalle = 0
         for i, snp in enumerate(snpinfo):
             pos = snp.bp_pos
             refAllele = snp.ref_allele
@@ -153,6 +154,10 @@ class Data():
             # Skip non-single letter polymorphisms
             if len(refAllele) > 1 or len(effectAllele) > 1:
                 npoly += 1
+                continue
+            # Skip unknown alleles
+            if refAllele not in SNP_COMPLEMENT or effectAllele not in SNP_COMPLEMENT:
+                nalle += 1
                 continue
             # Skip ambiguous strands
             if SNP_COMPLEMENT[refAllele] == effectAllele:
@@ -178,13 +183,14 @@ class Data():
                 # Remove SNPs out of HWE
                 hwep = self.HWEcheck(intdosage)
                 if(hwep < 0.000001):
-                   nhwep += 1
-                   # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
-                   continue
+                    nhwep += 1
+                    # self.logger.debug("SNP {:s} has a HWE p-value of {:g}".format(rsid, hwep))
+                    continue
             new_snp = snp._replace(maf = maf_actual)
             newsnps.append(new_snp)
             newdosage.append(dosage[i])
         self.logger.debug("Removed {:d} SNPs because of non-single letter polymorphisms".format(npoly))
+        self.logger.debug("Removed {:d} SNPs because of unknown allele symbol".format(nalle))
         self.logger.debug("Removed {:d} SNPs because of ambiguous strands".format(nambi))
         self.logger.debug("Removed {:d} SNPs because of unknown RSIDs".format(nunkn))
         self.logger.debug("Removed {:d} SNPs because of low MAF < {:g}".format(nlowf, maf_limit))
@@ -264,6 +270,8 @@ class Data():
             self.logger.debug("Generate cis-masks for GX matrix for each SNP")
             self._cismasklist = cismasking.get_cismasklist(self._snpinfo, self._geneinfo, self.args.chrom, window=self.args.window)
             self._cismaskcomp = cismasking.compress_cismasklist(self._cismasklist)
+            if self.args.crossmapfile is not None:
+                self._cismaskcomp = cismasking.extend_cismask(self._geneinfo, self._cismaskcomp, self.args.crossmapfile )
 
         if self.args.knncorr:
             self.logger.debug("Applying KNN correction on gene expression and genotype")

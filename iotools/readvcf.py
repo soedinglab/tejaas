@@ -108,7 +108,7 @@ class ReadVCF:
                                 self._mode = "GT"
                             else:
                                 dsindx = linesplit[8].split(':').index("DS")
-                                ds = [x.split(':')[dsindx] for x in linesplit[9:]]
+                                ds = [x.split(':')[dsindx] if len(x) > 1 else "." for x in linesplit[9:]]
                                 gtindx = linesplit[8].split(':').index("GT")
                                 for i, x in enumerate(ds):
                                     if x == ".":
@@ -121,7 +121,7 @@ class ReadVCF:
                                 print("ERROR: no GT field in VCF file")
                                 raise
                             gtindx = linesplit[8].split(':').index("GT")
-                            gt = [x.split(':')[gtindx] for x in linesplit[9:]]
+                            gt = [x.split(':')[gtindx] if len(x) > 1 else "." for x in linesplit[9:]]
                             ds = [ float(int(x[0]) + int(x[2])) if len(x) == 3 and x[0] != "." and x[2] != "." else "." for x in gt ]
 
                         ds_notna = [float(x) for x in ds if x != "."]

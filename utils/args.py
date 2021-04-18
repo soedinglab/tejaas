@@ -130,6 +130,12 @@ class Args():
         self.maketest  = args.maketest
 
         self.check_inputs()
+        self.crossmapfile = args.crossmapfile
+        self.usefdr = False
+        self.target_fdr = args.target_fdr
+        if self.target_fdr is not None:
+            self.usefdr = True
+
 
         if self.rank == 0:
             self.logger.info('Method: {:s}'.format(args.method))
@@ -301,6 +307,19 @@ class Args():
                             dest='maketest',
                             action='store_true',
                             help='whether to do test run')
+
+        parser.add_argument('--crossmap',
+                            type = str,
+                            default=None,
+                            dest = 'crossmapfile',
+                            help = 'Crossmapability file (Saha, Battle 2018) ')
+
+        parser.add_argument('--fdrgenethres',
+                            default=None,
+                            type=float,
+                            dest='target_fdr',
+                            metavar='FDR',
+                            help='enable FDR correction up to a certain cutoff for target gene discovery')
 
         res = parser.parse_args()
         return res

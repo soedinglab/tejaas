@@ -111,6 +111,15 @@ if args.jpa:
     if rank == 0: logger.debug("Computing JPA")
     jpa = JPA(gtnorm, expr, comm, rank, ncore, args.jpa, masklist, get_pvals = True, qnull_file = args.jpanull_file)
     jpa.compute()
+
+    ### Calculate target genes
+    teqtl_id = None
+    if rank == 0: teqtl_id = np.where(jpa.jpa_pvals <= args.psnpcut)[0]
+    teqtl_id = comm.bcast(teqtl_id, root = 0)
+
+    tgjpa = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+    tgjpa.compute()
+
 if rank == 0: jpa_time = time.time()
 
 
@@ -141,14 +150,20 @@ if args.rr:
     rr.compute(get_betas = False)  # Set get_betas = True to obtain the coefficients of multiple regression (stored in rr.betas)
 
     teqtl_id = None
-    if rank == 0: teqtl_id = np.where(rr.pvals < args.psnpcut)[0]
+    if rank == 0: teqtl_id = np.where(rr.pvals <= args.psnpcut)[0]
     teqtl_id = comm.bcast(teqtl_id, root = 0)
 
     tgknn = JPA(gtnorm[teqtl_id, :], expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
     tgknn.compute()
 
-    tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
-    tgjpa.compute()
+    if args.usefdr:
+        # add masks
+        tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, [masklist[i] for i in teqtl_id], get_pvals = False, statmodel = 'fstat', target_fdr=0.5)
+        tgjpa.compute()
+    else:
+        tgjpa = JPA(tgene_gtnorm[teqtl_id, :], tgene_expr, comm, rank, ncore, False, None, get_pvals = False, statmodel = 'fstat')
+        tgjpa.compute()
+
 if rank == 0: rr_time = time.time()
 
 
@@ -158,9 +173,9 @@ if rank == 0: rr_time = time.time()
 if rank == 0: 
     ohandle = Outhandler(args, snpinfo, geneinfo)
     if args.jpa:
-        ohandle.write_jpa_out(jpa)
+        ohandle.write_jpa_out(jpa, tgjpa, teqtl_id)
     if args.rr:
-        ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id)
+        ohandle.write_rr_out(rr, tgknn, tgjpa, teqtl_id, write_betas = False)
 if rank == 0: write_time = time.time()
 
 
