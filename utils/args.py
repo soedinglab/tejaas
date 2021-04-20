@@ -126,6 +126,8 @@ class Args():
         self.maf_file  = args.maf_filename
         self.jpanull_file = args.qnullfile
         self.jpa_calc_null = project.need_new_jpanull_file(self.jpa, self.jpanull_file)
+        self.jpanull_iter = args.qnull_iter
+        self.seed      = args.seed
 
         self.maketest  = args.maketest
 
@@ -285,6 +287,18 @@ class Args():
                             type = str,
                             dest = 'qnullfile',
                             help = 'Filename for storing / reading null JPA scores')
+
+        parser.add_argument('--jpanull-iter',
+                            default = 100000,
+                            type = int,
+                            dest = 'qnull_iter',
+                            help = 'Number of iterations for creating null JPA scores')
+
+        parser.add_argument('--seed',
+                            default = None,
+                            type = int,
+                            dest = 'seed',
+                            help = 'Seed the random generator for numpy, used for development purpose')
 
         parser.add_argument('--maf-file',
                             type=str,

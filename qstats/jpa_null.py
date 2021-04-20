@@ -10,7 +10,7 @@ from utils import mpihelper
 class JPANULL:
 
 
-    def __init__(self, x, y, comm, rank, ncore, outfile, niter=100000):
+    def __init__(self, x, y, comm, rank, ncore, outfile, niter=100000, seed=None):
         self.gt = x
         self.gx = y
         self._niter = niter
@@ -19,6 +19,8 @@ class JPANULL:
         self.comm = comm
         self.ncore = ncore
         self.mpi = False
+        if seed is not None:
+            np.random.seed(seed)
         if self.ncore > 1:
             self.mpi = True
         self.logger = MyLogger(__name__)

@@ -98,7 +98,7 @@ if rank == 0: read_time = time.time()
 # ==================================
 if args.jpa_calc_null:
     if rank == 0: logger.debug("Calculating null values for JPA")
-    jpa_null = JPANULL(gtnorm, expr, comm, rank, ncore, args.jpanull_file, niter=100000)
+    jpa_null = JPANULL(gtnorm, expr, comm, rank, ncore, args.jpanull_file, niter=args.jpanull_iter, seed=args.seed)
     jpa_null.compute()
 if rank == 0: jpanull_time = time.time()
 
