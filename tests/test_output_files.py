@@ -19,15 +19,15 @@ class TestOutputFiles(unittest.TestCase):
         return
 
 
-    def test_jpanull(self):
-        self._compare_with_gold_file("result_jpanull.txt")
-        return
+    #def test_jpanull(self):
+    #    self._compare_with_gold_file("result_jpanull.txt")
+    #    return
 
 
-    def test_jpa_outfiles(self):
-        for filename in ["result_fr_jpa.txt", "result_fr_gene_snp_list.txt"]:
-            self._compare_with_gold_file(filename)
-        return
+    #def test_jpa_outfiles(self):
+    #    for filename in ["result_fr_jpa.txt", "result_fr_gene_snp_list.txt"]:
+    #        self._compare_with_gold_file(filename)
+    #    return
 
 
     def _compare_with_gold_file(self, filename):

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-NCORE="4" # number of cores for running Tejaas
+NCORE="1" # number of cores for running Tejaas
 TEST_DIR="tests"
 DATA_DIR="${TEST_DIR}/data" # directory for downloading data and output results
 
@@ -31,7 +31,7 @@ mpirun -n ${NCORE} ${RUN_PATH} --vcf ${GENOFILE} --include-SNPs ${INCSTRING} --c
                                --gx ${GXPRFILE} --gxcorr ${GXPRFILE} --gtf ${GENEINFO} --trim --outprefix ${OUTPREFIX_RR} \
                                --method rr --prior-sigma 0.1 --knn 30 --cismask --null perm --psnpthres 0.1 --pgenethres 0.1 
 
-mpirun -n ${NCORE} ${RUN_PATH} --vcf ${GENOFILE} --include-SNPs ${INCSTRING} --chrom ${CHROM} \
-                               --gx ${GXPRFILE} --gxfmt gtex --gtf ${GENEINFO} --trim --outprefix ${OUTPREFIX_JPA} \
-                               --knn 0 --method jpa --jpanull ${NULLFILE} --jpanull-iter 1000 --seed 100 \
-                               --psnpthres 0.1 --pgenethres 0.1
+#mpirun -n ${NCORE} ${RUN_PATH} --vcf ${GENOFILE} --include-SNPs ${INCSTRING} --chrom ${CHROM} \
+#                               --gx ${GXPRFILE} --gxfmt gtex --gtf ${GENEINFO} --trim --outprefix ${OUTPREFIX_JPA} \
+#                               --knn 0 --method jpa --jpanull ${NULLFILE} --jpanull-iter 1000 --seed 100 \
+#                               --psnpthres 0.1 --pgenethres 0.1
