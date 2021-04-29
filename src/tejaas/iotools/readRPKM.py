@@ -8,7 +8,7 @@
     Reads annotation file for gene information
  
     Usage:
-        from .iotools.readrpkm import ReadRPKM
+        from tejaas.iotools.readrpkm import ReadRPKM
         rpkm = ReadRPKM(rpkmfile)
         rpkm.read_annotation(annotationfile)
         expression = rpkm.expression
@@ -25,7 +25,7 @@ import os
 import pandas as pd
 from sklearn.decomposition import PCA
 
-from .utils.logs import MyLogger
+from tejaas.utils.logs import MyLogger
 
 class ReadRPKM:
 

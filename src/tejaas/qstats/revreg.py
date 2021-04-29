@@ -8,10 +8,10 @@ from scipy import stats
 from scipy.optimize import minimize
 #from statsmodels.distributions.empirical_distribution import ECDF
 
-from .utils import mpihelper
-from .qstats import rrstat
-from .qstats import crrstat
-from .utils.logs import MyLogger
+from tejaas.utils import mpihelper
+from tejaas.qstats import rrstat
+from tejaas.qstats import crrstat
+from tejaas.utils.logs import MyLogger
 
 class RevReg:
 

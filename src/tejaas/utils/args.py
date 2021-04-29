@@ -7,8 +7,8 @@ Sanity check on input values.
 import argparse
 import os
 import errno
-from .utils.logs import MyLogger
-from .utils import project
+from tejaas.utils.logs import MyLogger
+from tejaas.utils import project
 
 
 class InputError(Exception):

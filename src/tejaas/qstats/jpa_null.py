@@ -3,9 +3,9 @@ from scipy.linalg import eigh
 from scipy import special
 from scipy import stats
 
-from .qstats.zstats import ZSTATS
-from .utils.logs import MyLogger
-from .utils import mpihelper
+from tejaas.qstats.zstats import ZSTATS
+from tejaas.utils.logs import MyLogger
+from tejaas.utils import mpihelper
 
 class JPANULL:
 

@@ -1,5 +1,5 @@
 import numpy as np
-from .utils.logs import MyLogger
+from tejaas.utils.logs import MyLogger
 
 logger = MyLogger(__name__)
 

@@ -2,7 +2,7 @@
 
 ''' Parse dosage data from VCF file.
     Usage:
-       from .iotools.readvcf import ReadVCF
+       from tejaas.iotools.readvcf import ReadVCF
        readvcf = ReadVCF(vcf_filepath)
        snpinfo = readvcf.snpinfo
           ...
@@ -22,7 +22,7 @@ import numpy as np
 import gzip
 import os
 import re
-from .utils.containers import SnpInfo
+from tejaas.utils.containers import SnpInfo
 
 class ReadVCF:
 

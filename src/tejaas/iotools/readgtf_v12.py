@@ -7,7 +7,7 @@
 import os
 import numpy as np
 import gzip
-from .utils.containers import GeneInfo
+from tejaas.utils.containers import GeneInfo
 
 
 def gencode_v12(filepath, feature = 'gene', trim=False, biotype=['protein_coding'], include_chrom = 0, include_chroms=['{:d}'.format(x + 1) for x in range(22)]):

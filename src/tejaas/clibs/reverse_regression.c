@@ -24,27 +24,39 @@
 
 #include "svd.h"
 #include "utils.h"                              /* min, transpose */
+#include "npy_cblas.h"
 
-#ifdef MKL_ILP64
-#include <mkl.h>
-void my_cdfnorm( double* X, double* P) {
-	vdCdfNorm( 1, X, P );
-}
-#else
-#include <cblas.h>
-#include <cblas_f77.h>
-#include "dcdflib/src/dcdflib.c"
-#include "dcdflib/src/ipmpar.c"
-void my_cdfnorm( double* X, double* P) {
-	int which[1] = {1}; // iwhich = 1 : Calculate P and Q from X,MEAN and SD
-	double Q[1] = {0.0};
-	double MEAN[1] = {0.0};
-	double SD[1] = {1.0};
-	int status[1] = {0};
-	double bound[1];
-    cdfnor(which, P, Q, X, MEAN, SD, status, bound);
-}
+/* default MKL macro from numpy */
+#ifdef SCIPY_MKL_H
+    /*
+     * cannot include mkl.h
+     * because miniconda/mkl does not provide this include
+     * include <mkl.h>
+     *
+     * Define the header manually
+     */
+    typedef size_t  INT;
+    #define MKL_INT INT // this tells MKL about user's MKL_INT type
+    void vdCdfNorm(const MKL_INT *n, const double a[], double r[]);
+
+    void my_cdfnorm( double* X, double* P) {
+        vdCdfNorm( 1, X, P );
+    }
+/* default CBLAS macro from numpy */
+#elif HAVE_CBLAS
+    #include "dcdflib/src/dcdflib.c"
+    #include "dcdflib/src/ipmpar.c"
+    void my_cdfnorm( double* X, double* P) {
+        int which[1] = {1}; // iwhich = 1 : Calculate P and Q from X,MEAN and SD
+        double Q[1] = {0.0};
+        double MEAN[1] = {0.0};
+        double SD[1] = {1.0};
+        int status[1] = {0};
+        double bound[1];
+        cdfnor(which, P, Q, X, MEAN, SD, status, bound);
+    }
 #endif
+
 
 #define NO_NULL 0
 #define MAF_NULL 1

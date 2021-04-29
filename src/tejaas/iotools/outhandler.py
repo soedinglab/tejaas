@@ -2,7 +2,7 @@ import numpy as np
 import itertools
 import os
 
-from .utils.logs import MyLogger
+from tejaas.utils.logs import MyLogger
 logger = MyLogger(__name__)
 
 import mpmath

@@ -8,7 +8,7 @@ import os
 import numpy as np
 import gzip
 import re
-from .utils.containers import GeneInfo
+from tejaas.utils.containers import GeneInfo
 
 def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', 'lncRNA'], include_chrom = 0, include_chroms=['{:d}'.format(x + 1) for x in range(22)]):
     annotfile = os.path.realpath(filepath)

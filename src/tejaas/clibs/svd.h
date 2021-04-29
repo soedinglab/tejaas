@@ -18,32 +18,15 @@
 
 #include <stdbool.h>
 #include <stdio.h>
+#include <stdlib.h>
 
-#ifdef MKL_ILP64
-#include <mkl.h>
-#include <mkl_lapacke.h>
-#else
-#include <lapacke.h>
-/*
-	static int
-LAPACKE_dgesvd ( int matrix_layout, char jobu, char jobvt,
-			int m, int n, double* a,
-			int lda, double* s, double* u, int ldu,
-			double* vt, int ldvt, double* superb ) {
-	int info = 0;
-	int lwork = -1;
-	double* work = NULL;
-	double work_query;
-
-	// Query optimal work array
-	dgesvd_(&jobu, &jobvt, &m, &n, a, &lda, s, u, &ldu, vt, &ldvt, work, &lwork, &info);
-	lwork = (int) work_query;
-
-	
-	return info;
-}
-*/
-#endif
+//#include <mkl.h>
+//#include <mkl_lapacke.h>
+#define LAPACK_ROW_MAJOR    101
+#define lapack_int  int
+extern lapack_int LAPACKE_dgesvd(int matrix_layout, char jobu, char jobvt,
+    lapack_int m, lapack_int n, double* a, lapack_int lda, double* s, double* u,
+    lapack_int ldu, double* vt, lapack_int ldvt, double* superb);
 
 /* 
  * ===  FUNCTION  ======================================================================

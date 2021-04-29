@@ -2,7 +2,7 @@
 
 import logging
 import sys
-from .utils import project
+from tejaas.utils import project
 
 loggers = {}
 

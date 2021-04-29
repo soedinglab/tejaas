@@ -2,7 +2,7 @@ import numpy as np
 import ctypes
 import os
 
-from .utils import project
+from tejaas.utils import project
 
 def crevreg(geno, expr, sb2, null, maf):
     clib = project.get_clib('reverse_regression')

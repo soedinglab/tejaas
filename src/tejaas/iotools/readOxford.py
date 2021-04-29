@@ -6,8 +6,8 @@ import gzip
 import numpy as np
 import re
 
-from .utils.containers import SnpInfo
-from .utils.logs import MyLogger
+from tejaas.utils.containers import SnpInfo
+from tejaas.utils.logs import MyLogger
 
 class Error(Exception):
     pass

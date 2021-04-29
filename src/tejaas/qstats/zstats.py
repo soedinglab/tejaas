@@ -1,9 +1,9 @@
 import os
 import numpy as np
 import ctypes
-from .utils import mpihelper
-from .utils.logs import MyLogger
-from .utils import project
+from tejaas.utils import mpihelper
+from tejaas.utils.logs import MyLogger
+from tejaas.utils import project
 
 class ZSTATS:
 

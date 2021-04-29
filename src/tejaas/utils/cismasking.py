@@ -2,7 +2,7 @@ import numpy as np
 from collections import defaultdict
 import gzip
 
-from .utils.containers import GeneInfo, CisMask
+from tejaas.utils.containers import GeneInfo, CisMask
 
 '''
 get_cismasklist

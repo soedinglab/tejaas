@@ -2,7 +2,7 @@ import numpy as np
 #from scipy.stats import chi2
 from scipy.stats import norm
 import logging
-from .utils.logs import MyLogger
+from tejaas.utils.logs import MyLogger
 
 logger = MyLogger(__name__)
 

@@ -3,17 +3,17 @@ import scipy.stats as ss
 import random
 import os
 from collections import defaultdict
+from sklearn.decomposition import PCA
 
-from .utils import cismasking
-from .utils import knn
+from tejaas.utils import cismasking
+from tejaas.utils import knn
 
-from .iotools import readgtf
-from .iotools.readOxford import ReadOxford
-from .iotools.readvcf import ReadVCF
-from .iotools.readRPKM import ReadRPKM
-from .utils.containers import GeneInfo, CisMask
-from .utils.logs import MyLogger
-from .sklearn.decomposition import PCA
+from tejaas.iotools import readgtf
+from tejaas.iotools.readOxford import ReadOxford
+from tejaas.iotools.readvcf import ReadVCF
+from tejaas.iotools.readRPKM import ReadRPKM
+from tejaas.utils.containers import GeneInfo, CisMask
+from tejaas.utils.logs import MyLogger
 
 SNP_COMPLEMENT = {'A':'T', 'C':'G', 'G':'C', 'T':'A'}
 
