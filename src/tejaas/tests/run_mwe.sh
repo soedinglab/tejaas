@@ -10,7 +10,7 @@ DATA_DIR="${TEST_DIR}/data" # directory for downloading data and output results
 
 #FTP_URL="http://wwwuser.gwdg.de/~compbiol/tejaas/example"
 GTF_URL="ftp://ftp.ebi.ac.uk/pub/databases/gencode/Gencode_human/release_19/gencode.v19.annotation.gtf.gz"
-RUN_PATH="bin/tejaas"
+RUN_PATH="tejaas"
 GENOFILE="${DATA_DIR}/genotype.vcf.gz"
 GXPRFILE="${DATA_DIR}/expression.txt"
 GENEINFO="${DATA_DIR}/gencode.v19.annotation.gtf.gz"

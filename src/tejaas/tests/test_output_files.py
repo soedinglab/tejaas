@@ -1,6 +1,8 @@
 import unittest
 import os
 import subprocess
+
+import tejaas.tester
   
 class TestOutputFiles(unittest.TestCase):
 
@@ -57,4 +59,4 @@ class TestOutputFiles(unittest.TestCase):
         return        
 
 if __name__ == '__main__':
-    unittest.main()
+    tejaas.tester.main()
