@@ -15,9 +15,6 @@ def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', '
     geneinfo = list()
     lncRNA_list = ["macro_lncRNA", "non_coding", "bidirectional_promoter_lncRNA", "3prime_overlapping_ncRNA", 
                    "sense_overlapping", "processed_transcript", "sense_intronic", "antisense", "lincRNA", "miRNA"]
-    mode = "v19"
-    if re.search("v26", filepath):
-        mode = "v26"
 
     if "lncRNA" in biotype:
         mybiotype = biotype + lncRNA_list
@@ -40,18 +37,27 @@ def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', '
 
                     # Any particular biotype selected?
                     infolist = linesplit[8].split(';')
+                    indices_set = False
+                    gene_name_ix = None
+                    gene_type_ix = None
+                    gene_id_ix   = None
+                    if not indices_set:
+                        for i,e in enumerate(infolist):
+                            Id    = e.strip().split(' ')[0]
+                            # value = e.strip().split(' ')[1]
+                            if Id == "gene_type": gene_type_ix = i
+                            if Id == "gene_name": gene_name_ix = i
+                            if Id == "gene_id": gene_id_ix = i
+                        if (gene_type_ix is None) and (len(mybiotype) > 0):
+                            raise ValueError("No 'gene_type' specified in gene annotation file")
+                        if (gene_name_ix is not None) and (gene_id_ix is not None):
+                            indices_set = True
 
-                    if mode == "v19":
-                        if len(mybiotype) > 0:
-                            rowtype = infolist[2].strip().split(' ')[1].replace('"','')
-                            if rowtype not in mybiotype: continue
-                        gene_name = infolist[4].strip().split(' ')[1].replace('"','')
+                    if len(mybiotype) > 0:
+                        rowtype = infolist[gene_type_ix].strip().split(' ')[1].replace('"','')
+                        if rowtype not in mybiotype: continue
+                    gene_name = infolist[gene_name_ix].strip().split(' ')[1].replace('"','')
 
-                    if mode == "v26":
-                        if len(mybiotype) > 0:
-                            rowtype = infolist[1].strip().split(' ')[1].replace('"','')
-                            if rowtype not in mybiotype: continue
-                        gene_name = infolist[2].strip().split(' ')[1].replace('"','')
 
                     # TSS: gene start (0-based coordinates for BED)
                     if linesplit[6] == '+':
@@ -81,6 +87,11 @@ def gencode(filepath, feature = 'gene', trim=False, biotype=['protein_coding', '
         except IOError as err:
             raise IOError('{:s}: {:s}'.format(annotfile, err.strerror))
 
+        ensembl_ids = [g.ensembl_id for g in geneinfo]
+        try:
+            assert( len(ensembl_ids) == len(set(ensembl_ids)) )
+        except AssertionError:
+            print('GTF annotation file contains non-unique gene_id identifiers')
         return geneinfo
 
 def affy_exon_chip(filepath, include_chrom = 0, include_chroms=['{:d}'.format(x + 1) for x in range(22)]):

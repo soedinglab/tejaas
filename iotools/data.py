@@ -239,6 +239,8 @@ class Data():
         self.logger.debug("Reading gencode file for gene information")
 
         gene_info = readgtf.gencode(self.args.gtf_file, trim=self.args.gxtrim, biotype=self.args.biotype)
+        if len(gene_info) == 0:
+            self.logger.error("No gene annotations found in GTF file. Check feature 'gene' is present, with 'gene_id' and 'gene_name' annotations")
 
         # reorder donors gt and expr
         self.logger.debug("Selecting common samples of genotype and gene expression")
