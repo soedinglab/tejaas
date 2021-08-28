@@ -85,10 +85,11 @@ def numpy_get_lapack_info():
 --------------------------
 The sources and target shared libraries are defined in the config file.
 Example:
-  clib_path = src/cpydemo/clibs
+  clib_path = src/tejaas/clibs
   clib_sources = 
-    sum :: sum.c
-    diff :: diff.c
+    linear_regression       :: linear_regression.c
+    linear_regression_zstat :: linear_regression_zstat.c
+    reverse_regression      :: reverse_regression.c
 LAPACK installation of the system is obtained from numpy.distutils.system_info (see above)
 and these sources are combined to obtain a list of extension modules
 '''
