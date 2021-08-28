@@ -1,6 +1,7 @@
 import unittest
 import os
 import subprocess
+import pathlib
 
 import tejaas.tester
   
@@ -9,7 +10,7 @@ class TestOutputFiles(unittest.TestCase):
 
     def __init__(self, *args, **kwargs):
         super(TestOutputFiles, self).__init__(*args, **kwargs)
-        self.test_dir = "tests"
+        self.test_dir = pathlib.Path(__file__).parent.resolve()
         self.out_dir  = os.path.join(self.test_dir, "data")
         self.gold_dir = os.path.join(self.test_dir, "gold")
         self._run_bash_script(os.path.join(self.test_dir, "run_mwe.sh"))
@@ -49,11 +50,10 @@ class TestOutputFiles(unittest.TestCase):
 
 
     def _run_bash_script(self, script_file):
-        cmd     = ["bash", script_file]
+        cmd     = ["bash", script_file, self.test_dir]
         with subprocess.Popen(cmd, stdout = subprocess.PIPE, stderr = subprocess.PIPE, bufsize=1, universal_newlines=True) as process:
             for line in process.stdout:
                 print (line, end = "")
-        #res     = process.communicate()
         retcode = process.returncode
         self.assertEqual(retcode, 0)
         return        

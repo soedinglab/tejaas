@@ -39,6 +39,20 @@ You can find examples of getting started here:
 - [Example 2 (Minion)](https://github.com/soedinglab/tejaas/wiki/Minion2)
 
 ## Installation
+### From PyPI.
+1. Install the dependencies. If you are using `conda`, then they can be installed using
+```
+conda install numpy scipy statsmodel scikit-learn
+conda install -c conda-forge mpi4py
+pip install pygtrie
+```
+2. Install Tejaas
+```
+pip install tejaas
+```
+
+
+### From source code.
 1. Clone this repository.
 2. Compile the C libraries provided in the `lib` subdirectory. Some example makefiles are provided within the `lib` subdirectory.
 ```

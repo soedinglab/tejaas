@@ -1,7 +1,7 @@
 #!/bin/sh
 
 NCORE="1" # number of cores for running Tejaas
-TEST_DIR="tests"
+TEST_DIR="$1"
 DATA_DIR="${TEST_DIR}/data" # directory for downloading data and output results
 
 #====================
@@ -16,7 +16,7 @@ GXPRFILE="${DATA_DIR}/expression.txt"
 GENEINFO="${DATA_DIR}/gencode.v19.annotation.gtf.gz"
 OUTPREFIX_RR="${DATA_DIR}//result"
 OUTPREFIX_JPA="${DATA_DIR}/result_fr"
-NULLFILE="${DATA_DIR}//result_jpanull.txt"
+NULLFILE="${DATA_DIR}/result_jpanull.txt"
 INCSTRING=0:110
 CHROM=22
 

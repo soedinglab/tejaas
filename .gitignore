@@ -1,6 +1,7 @@
 # Dev boilerplate
 devtools/*
 *tests/data
+example/data
 
 # Vim swaps
 *.swp

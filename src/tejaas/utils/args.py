@@ -131,7 +131,7 @@ class Args():
 
         self.maketest  = args.maketest
 
-        self.check_inputs()
+        if not self.maketest: self.check_inputs()
         self.crossmapfile = args.crossmapfile
         self.usefdr = False
         self.target_fdr = args.target_fdr

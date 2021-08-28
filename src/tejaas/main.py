@@ -31,6 +31,7 @@ from mpi4py import MPI
 
 from tejaas.utils.args import Args
 from tejaas.utils.logs import MyLogger
+from tejaas.utils import project
 from tejaas.qstats.jpa import JPA
 from tejaas.qstats.jpa_null import JPANULL
 from tejaas.qstats.revreg import RevReg
@@ -40,13 +41,20 @@ from tejaas.iotools.outhandler import Outhandler
 from tejaas.iotools import readmaf
 from tejaas.iotools import readqnull
 
-def main():
+from tejaas.tester import UnittestTester
+from tejaas.tests.test_output_files import TestOutputFiles
+
+def run_unittests(comm, args):
+    tester = UnittestTester(TestOutputFiles)
+    tester.execute()
+    del tester
+    return
+
+def run_tejaas(comm, args):
 
     # ==================================
     # Start MPI calculation
     # ==================================
-    MPI.Init()
-    comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     ncore = comm.Get_size()
     if rank == 0: start_time = time.time()
@@ -55,7 +63,6 @@ def main():
     # ==================================
     # Input Processing
     # ==================================
-    args = Args(comm, rank)
     logger = MyLogger(__name__)
 
     # List of variables that are broadcast over all slave nodes
@@ -192,7 +199,28 @@ def main():
         logger.info("Result writing time: {:g} seconds".format(write_time - rr_time))
         logger.info("Total run time: {:g} seconds".format(time.time() - start_time))
 
+def main():
+
+    # ==================================
+    # Start MPI calculation
+    # ==================================
+    MPI.Init()
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    ncore = comm.Get_size()
+
+    # ==================================
+    # Input Processing
+    # ==================================
+    args = Args(comm, rank)
+
+    if args.maketest:
+        run_unittests(comm, args)
+    else:
+        run_tejaas(comm, args)
+
     MPI.Finalize()
+
 
 if __name__ == "__main__":
     main()
