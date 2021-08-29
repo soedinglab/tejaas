@@ -20,7 +20,7 @@ Additionally, it also implements a non-linear unsupervised confounder correction
 
 ## Dependencies
 
-- Python version 3.4 or higher,
+- Python version 3.6 or higher,
 - Intel MKL library
 - C compiler
 - Python libraries:
@@ -39,42 +39,48 @@ You can find examples of getting started here:
 - [Example 2 (Minion)](https://github.com/soedinglab/tejaas/wiki/Minion2)
 
 ## Installation
-### From PyPI.
-1. Install the dependencies. If you are using `conda`, then they can be installed using
+
+See the wiki for detailed [installation instructions](https://github.com/soedinglab/tejaas/wiki/Installation). 
+Here is a quick start guide:
+
+### 1. Install dependencies
+Installation of Tejaas depends on other dependencies. If you are using `conda`, then they can be installed using
 ```
-conda install numpy scipy statsmodel scikit-learn
-conda install -c conda-forge mpi4py
-pip install pygtrie
+conda install numpy scipy statsmodels scikit-learn
+pip install mpi4py
 ```
-2. Install Tejaas
+
+### 2. Install Tejaas
+2a. Tejaas can be installed directly from the PyPI repository:
 ```
 pip install tejaas
 ```
+2b. You can also download this repository and build Tejaas:
+```
+git clone git@github.com:soedinglab/tejaas.git
+cd tejaas
+pip install -e .
+```
 
-
-### From source code.
-1. Clone this repository.
-2. Compile the C libraries provided in the `lib` subdirectory. Some example makefiles are provided within the `lib` subdirectory.
+### 3. Run Tejaas!
 ```
-cd lib
-make all -f Makefile
+tejaas [OPTIONS]
 ```
-3. Run Tejaas!
-```
-bin/tejaas [OPTIONS]
-```
-See below for valid options or try `bin/tejaas --help`.
+See below for valid options or try `tejaas --help`.
 
 #### Run an example to check installation
-An example script `test/run_test.sh` is provided to check the installation.
-Open the script in your favorite editor and modify the variables `NCORE` and `DATA_DIR`.
-The script will download some example input files in the `DATA_DIR` directory and run Tejaas on `NCORE` cores.
-The output will be created in `DATA_DIR`. 
-Check if the output matches with the results provided in the `test/gold` subdirectory.
+An example script `example/run_example.sh` is provided to check the installation.
 ```
-cd test
-./run_test.sh
+cd tejaas/example
+./run_example.sh <outdir> <ncpu>
 ```
+The script will download some example input files in `<outdir>/data` and run Tejaas on `<ncpu>` cores.
+The output will be created in `<outdir>/data`. 
+Check if the output is correct:
+```
+python compare_with_gold.py
+```
+This will check if the output matches with the results provided in the `example/gold` subdirectory.
 
 ## Input Files
 - Gene expression file
@@ -120,7 +126,7 @@ Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n
 
 1. For quick start or installation check, run Tejaas with all default options:
 ```
-bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --gx ${GXFILE} --gtf ${GTFFILE} --cismask --outprefix ${OUTPREFIX}
+tejaas --vcf ${VCFFILE} --chrom ${CHRM} --gx ${GXFILE} --gtf ${GTFFILE} --cismask --outprefix ${OUTPREFIX}
 ```
 This will create RR-scores at &gamma;=0.1 and masking all genes within 1Mb of each SNP. The p-values will be computed from the permuted null model.
 Default format for the gene expression is the same as the GTEx format, and default gtf file is the [GENCODE v26](https://www.gencodegenes.org/human/release_26.html) release.
@@ -137,10 +143,10 @@ The output reports target genes only for SNPs with p-value < 1e-6 `--psnpthres 0
 Here, `GXFILE` is the raw gene expression file, `GXCORRFILE` is the confounder-corrected gene expression file,
 `VCFFILE` is the genotype file in `.vcf.gz` format and `GTFFILE` is the GENCODE annotation file.
 ```
-mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 21:1000 --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
-                       --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
-                       --cismask --window 2e6 --psnpthres 0.000001 \
-                       --knn 20 --method rr --null perm --prior-sigma 0.05
+mpirun -n 8 tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 21:1000 --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
+                   --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
+                   --cismask --window 2e6 --psnpthres 0.000001 \
+                   --knn 20 --method rr --null perm --prior-sigma 0.05
 ```
 
 3. Example of running JPA-score with no KNN correction. 
@@ -148,9 +154,9 @@ Empirical p-values are calculated from the null scores loaded from `NULLFILE` sp
 If `NULLFILE` does not exist, then it will create `100000` null scores and write them in the `NULLFILE` before calculating JPA-scores.
 If `--jpanull` option is not used, then p-values for the JPA-scores are calculated from an analytical construction of null model.
 ```
-mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 1:100 \
-                       --gx ${GXFILE} --gxfmt gtex --gtf ${GTFFILE} --outprefix ${OUTPREFIX} \
-                       --knn 0 --method jpa --jpanull ${NULLFILE}
+mpirun -n 8 tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs 1:100 \
+                   --gx ${GXFILE} --gxfmt gtex --gtf ${GTFFILE} --outprefix ${OUTPREFIX} \
+                   --knn 0 --method jpa --jpanull ${NULLFILE}
 ```
 
 4. Example of parallelizing job submission.
@@ -166,9 +172,9 @@ for CHRM in $( seq 1 22 ); do
         if [ ${ENDSNP} -gt ${NTOT} ]; then
             ENDSNP=${NTOT}
         fi
-        mpirun -n 8 bin/tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs ${STARTSNP}:${ENDSNP} --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
-                               --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
-                               --cismask --psnpthres 0.000001 --knn 20 --method rr --null perm --prior-sigma 0.05
+        mpirun -n 8 tejaas --vcf ${VCFFILE} --chrom ${CHRM} --include-SNPs ${STARTSNP}:${ENDSNP} --gx ${GXFILE} --gxcorr ${GXCORRFILE} \
+                           --gxfmt gtex --gtf ${GTFFILE} --trim  --outprefix ${OUTPREFIX} \
+                           --cismask --psnpthres 0.000001 --knn 20 --method rr --null perm --prior-sigma 0.05
     done
 done
 ```
