@@ -1,8 +1,9 @@
 #!/bin/sh
 
-TEST_DIR="$1"
+OUTDIR="$1"
 NCORE="$2" # number of cores for running Tejaas
-DATA_DIR="${TEST_DIR}/data" # directory for downloading data and output results
+DATA_DIR="${OUTDIR}/data" # directory for downloading data and output results
+EXMPL_DIR=$( pwd ) # this code is always run from the current working directory
 
 #====================
 # DO NOT CHANGE BELOW
@@ -22,8 +23,8 @@ CHROM=22
 
 if [ ! -d ${DATA_DIR} ]; then mkdir -p ${DATA_DIR}; fi
 
-if [ ! -f ${GENOFILE} ]; then cp ${TEST_DIR}/genotype.vcf.gz ${GENOFILE} ; fi
-if [ ! -f ${GXPRFILE} ]; then tar -zxf ${TEST_DIR}/expression.txt.tar.gz -C ${DATA_DIR}/ ; fi
+if [ ! -f ${GENOFILE} ]; then cp ${EXMPL_DIR}/genotype.vcf.gz ${GENOFILE} ; fi
+if [ ! -f ${GXPRFILE} ]; then tar -zxf ${EXMPL_DIR}/expression.txt.tar.gz -C ${DATA_DIR}/ ; fi
 if [ ! -f ${GENEINFO} ]; then wget -P ${DATA_DIR}/ ${GTF_URL} ; fi
 if [   -f ${NULLFILE} ]; then rm -f ${NULLFILE} ; fi
 
