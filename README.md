@@ -20,10 +20,11 @@ Additionally, it also implements a non-linear unsupervised confounder correction
 
 ## Dependencies
 
-- Python version 3.6 or higher,
-- Intel MKL library
+- Python version 3.6 or higher
 - C compiler
-- Python libraries:
+- Any linear algebra routine, e.g. Intel MKL, OpenBLAS, etc.
+- Any flavor of Message Passing Interface (MPI), e.g. OpenMPI, MPICH, etc.
+- Other Python libraries:
   - [NumPy](http://www.numpy.org/) / array operations
   - [SciPy](https://www.scipy.org/) / optimization and other special functions
   - [statsmodel](http://www.statsmodels.org/stable/index.html) / used for ECDF calculation in JPA-score
@@ -31,12 +32,11 @@ Additionally, it also implements a non-linear unsupervised confounder correction
   - [mpi4py](https://mpi4py.readthedocs.io/en/stable/) / linked to MPI and MKL for python parallelization
   - [scikit-learn](https://scikit-learn.org/stable/index.html) / used for PCA decomposition in KNN correction
 
-Optional:
-- any flavor of MPI linked to the Intel MKL library (e.g. OpenMPI)
-
+<!--
 You can find examples of getting started here:
 - [Example 1 (GWDG Cluster)](https://github.com/soedinglab/tejaas/wiki/GWDG-Cluster)
 - [Example 2 (Minion)](https://github.com/soedinglab/tejaas/wiki/Minion2)
+-->
 
 ## Installation
 
@@ -76,11 +76,14 @@ cd tejaas/example
 ```
 The script will download some example input files in `<outdir>/data` and run Tejaas on `<ncpu>` cores.
 The output will be created in `<outdir>/data`. 
+Note that the `data` subdirectory is automatically created within the `<outdir>` specified by the user.
 Check if the output is correct:
 ```
-python compare_with_gold.py
+python compare_with_gold.py --outdir <outdir>
 ```
-This will check if the output matches with the results provided in the `example/gold` subdirectory.
+This will check if the output in `<outdir>/data` 
+(again note that `data` subdirectory is automatically appended and need not be specified by the user)
+matches with the results provided in the `example/gold` subdirectory.
 
 ## Input Files
 - Gene expression file
@@ -119,8 +122,10 @@ Option&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&n
 `--jpanull`   | `FILEPATH` | File containing list of null model JPA-scores | Optional | -- 
 `--maf-file`  | `FILEPATH` | Read minor allele frequency (MAF) of SNPs from this file, e.g. to read population MAF for `maf` null (see documentation for file format) | Optional | -- 
 `--shuffle`   |            | Flag to randomly shuffle the genotypes to obtain a null distribution | Optional | `False`
-`--shuffle-with` | `FILEPATH` | Shuffle the genotypes in the same order of donor IDs specified in `FILEPATH` | Optional | -- 
+`--shuffle-with` | `FILEPATH` | Shuffle the genotypes in the same order of donor IDs specified in `FILEPATH` | Optional | --
+<!--
 `--test`      |            | Flag to do test run | Optional | -- 
+-->
 
 ## Usage Examples
 
