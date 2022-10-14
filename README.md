@@ -188,3 +188,6 @@ done
 <a href="https://github.com/soedinglab/tejaas/graphs/contributors">
   <img src="https://contributors-img.web.app/image?repo=soedinglab/tejaas" />
 </a>
+
+## Version History
+1.0.2 Bump release version
